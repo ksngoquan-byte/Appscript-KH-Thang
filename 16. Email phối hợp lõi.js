@@ -42,131 +42,6 @@ var CAU_HINH_TONG_HOP_PHOI_HOP = {
   DINH_DANG_NGAY: 'yyyy-MM-dd'
 };
 
-var EMAIL_PHOI_HOP_DISABLED = 'EMAIL_PHOI_HOP_DISABLED';
-var EMAIL_PHOI_HOP_DISABLED_AT = 'EMAIL_PHOI_HOP_DISABLED_AT';
-var EMAIL_PHOI_HOP_DISABLED_BY = 'EMAIL_PHOI_HOP_DISABLED_BY';
-var DS_HANDLER_TRIGGER_EMAIL_PHOI_HOP = [
-  'guiEmailPhoiHopTheoLich',
-  'khiSuaDanhDauSheetEmailPhoiHop',
-  'guiMailNhac5NgayChoPhongBan_',
-  'guiMailNhac8GioChoNguoiChinhSua_',
-  'guiMailNhacGuiTongHopNoiBoSauKhoa_'
-];
-
-function laHandlerTriggerEmailPhoiHop_(tenHam) {
-  return DS_HANDLER_TRIGGER_EMAIL_PHOI_HOP.indexOf(String(tenHam || '').trim()) !== -1;
-}
-
-function kiemTraEmailPhoiHopDangBiChan_() {
-  var giaTri = String(
-    PropertiesService.getScriptProperties().getProperty(EMAIL_PHOI_HOP_DISABLED) || ''
-  ).trim().toUpperCase();
-  var dangBiChan = giaTri === 'TRUE' || giaTri === '1' || giaTri === 'YES';
-
-  if (dangBiChan) {
-    Logger.log(
-      'Email phối hợp đang bị chặn bởi property %s=%s',
-      EMAIL_PHOI_HOP_DISABLED,
-      giaTri
-    );
-  }
-
-  return dangBiChan;
-}
-
-function auditTriggerEmailPhoiHop() {
-  var tatCaTrigger = ScriptApp.getProjectTriggers();
-  var ketQua = [];
-  var soTriggerEmail = 0;
-
-  tatCaTrigger.forEach(function(trigger, index) {
-    var tenHam = trigger.getHandlerFunction();
-    var laEmail = laHandlerTriggerEmailPhoiHop_(tenHam);
-    var eventType = '';
-    var source = '';
-
-    try {
-      eventType = String(trigger.getEventType());
-    } catch (e) {
-      eventType = 'KHONG_DOC_DUOC';
-    }
-
-    try {
-      source = String(trigger.getTriggerSource());
-    } catch (e2) {
-      source = 'KHONG_DOC_DUOC';
-    }
-
-    if (laEmail) {
-      soTriggerEmail++;
-    }
-
-    ketQua.push({
-      stt: index + 1,
-      handler: tenHam,
-      eventType: eventType,
-      source: source,
-      laTriggerEmailPhoiHop: laEmail
-    });
-  });
-
-  Logger.log('===== AUDIT TRIGGER EMAIL PHOI HOP =====');
-  Logger.log('Tong trigger: %s | trigger email phoi hop: %s', tatCaTrigger.length, soTriggerEmail);
-  ketQua.forEach(function(item) {
-    Logger.log(
-      '[%s] handler=%s | eventType=%s | source=%s | email=%s',
-      item.stt,
-      item.handler,
-      item.eventType,
-      item.source,
-      item.laTriggerEmailPhoiHop
-    );
-  });
-
-  return {
-    tongTrigger: tatCaTrigger.length,
-    soTriggerEmailPhoiHop: soTriggerEmail,
-    danhSach: ketQua
-  };
-}
-
-function batChanEmailPhoiHopKhanCap() {
-  var props = PropertiesService.getScriptProperties();
-  var nguoiChay = '';
-
-  try {
-    nguoiChay = Session.getEffectiveUser().getEmail();
-  } catch (e) {
-    nguoiChay = '';
-  }
-
-  props.setProperty(EMAIL_PHOI_HOP_DISABLED, 'TRUE');
-  props.setProperty(EMAIL_PHOI_HOP_DISABLED_AT, new Date().toISOString());
-  props.setProperty(EMAIL_PHOI_HOP_DISABLED_BY, nguoiChay || 'KHONG_XAC_DINH');
-
-  var dsDaXoa = xoaTriggerGuiEmailPhoiHop();
-  Logger.log(
-    'Đã bật chặn email phối hợp khẩn cấp | soTriggerEmailDaXoa=%s',
-    dsDaXoa.length
-  );
-
-  return {
-    disabled: true,
-    soTriggerEmailDaXoa: dsDaXoa.length,
-    dsTriggerDaXoa: dsDaXoa
-  };
-}
-
-function tatChanEmailPhoiHopKhanCap() {
-  PropertiesService.getScriptProperties().setProperty(EMAIL_PHOI_HOP_DISABLED, 'FALSE');
-  Logger.log('Đã gỡ chặn email phối hợp khẩn cấp. Chưa tạo lại trigger email.');
-
-  return {
-    disabled: false,
-    daTaoLaiTrigger: false
-  };
-}
-
 function taoTriggerGuiEmailPhoiHop() {
   Logger.log('DISABLED_BY_MASTER_MIGRATION|taoTriggerGuiEmailPhoiHop|Child scheduled email trigger creation disabled. MASTER handles scheduled emails.');
   return {
@@ -179,43 +54,22 @@ function taoTriggerGuiEmailPhoiHop() {
 function xoaTriggerGuiEmailPhoiHop() {
   try {
     const tatCaTrigger = ScriptApp.getProjectTriggers();
-    const dsDaXoa = [];
+    let soLuongDaXoa = 0;
 
     tatCaTrigger.forEach(function(trigger) {
       const tenHam = trigger.getHandlerFunction();
 
-      if (laHandlerTriggerEmailPhoiHop_(tenHam)) {
-        var banGhi = {
-          handler: tenHam,
-          eventType: '',
-          source: ''
-        };
-
-        try {
-          banGhi.eventType = String(trigger.getEventType());
-        } catch (e) {
-          banGhi.eventType = 'KHONG_DOC_DUOC';
-        }
-
-        try {
-          banGhi.source = String(trigger.getTriggerSource());
-        } catch (e2) {
-          banGhi.source = 'KHONG_DOC_DUOC';
-        }
-
+      if (
+        tenHam === 'khiSuaDanhDauSheetEmailPhoiHop' ||
+        tenHam === 'guiEmailPhoiHopTheoLich'
+      ) {
         ScriptApp.deleteTrigger(trigger);
-        dsDaXoa.push(banGhi);
-        Logger.log(
-          'Đã xóa trigger email phối hợp | handler=%s | eventType=%s | source=%s',
-          banGhi.handler,
-          banGhi.eventType,
-          banGhi.source
-        );
+        soLuongDaXoa++;
       }
     });
 
-    Logger.log('Đã xóa trigger email phối hợp cũ: %s', dsDaXoa.length);
-    return dsDaXoa;
+    Logger.log('Đã xóa trigger email phối hợp cũ: %s', soLuongDaXoa);
+    return soLuongDaXoa;
   } catch (loi) {
     Logger.log('Lỗi xoaTriggerGuiEmailPhoiHop: %s', loi.stack || loi);
     throw loi;
@@ -954,15 +808,9 @@ function guiMailNhacGuiTongHopNoiBoSauKhoa_(thamSo) {
 }
 
 function guiTongHopNoiBoChoMotSheet_(thamSo) {
-  var ss = thamSo.ss;
   var sheet = thamSo.sheet;
   var sheetData = thamSo.sheetData;
   var cheDoGuiNoiBo = thamSo.cheDoGuiNoiBo || 'TAM_THOI';
-
-  if (!ss) {
-    throw new Error('Thiếu spreadsheet context để gửi tổng hợp nội bộ.');
-  }
-
   var dongKetThuc = timDongTruocTongTheoCotA_Email_(sheet);
 
   if (dongKetThuc < CAU_HINH_EMAIL_PHOI_HOP.dongBatDauQuet) {

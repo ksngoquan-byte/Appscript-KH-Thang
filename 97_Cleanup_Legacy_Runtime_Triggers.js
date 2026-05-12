@@ -1,4 +1,4 @@
-﻿var LEGACY_RUNTIME_TRIGGER_HANDLERS_ = [
+var LEGACY_RUNTIME_TRIGGER_HANDLERS_ = [
   'guiEmailPhoiHopTheoLich',
   'capNhatBaoVeTheoThoiGian',
   'guiMailNhac8GioChoNguoiChinhSua_',
@@ -93,8 +93,6 @@ function isLegacyRuntimeTriggerHandler_(handler) {
   }
   return false;
 }
-
 function cleanupLegacyRuntimeTriggers() {
   return cleanupLegacyRuntimeTriggers_();
 }
-
