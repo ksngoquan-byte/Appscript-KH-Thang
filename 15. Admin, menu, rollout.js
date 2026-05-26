@@ -556,6 +556,11 @@ function baoVeLaiToanBoBieuMauAdmin() {
 
 function onOpen() {
   try {
+    khTuanWbs_addMenu_();
+  } catch (err) {
+    Logger.log('Lỗi tạo menu KH tuần: %s', err.stack || err);
+  }
+  try {
     if (ADMIN_MENU_ENABLED_()) {
       taoMenuQuanLyKeHoachThang_();
       Logger.log('Đã tạo menu vận hành khi mở file.');
@@ -977,7 +982,8 @@ function chayHoanTatSauRollout() {
   chayKiemTraTruocNhanBan();
 }
 
-const DS_CAP_CONG_VIEC_DROPDOWN_ = ['Nhóm', 'Cấp 1', 'Cấp 2', 'Cấp 3', 'Cấp 4'];
+const DS_CAP_CONG_VIEC_DROPDOWN_ = ['Dự án', 'Cấp 1', 'Cấp 2', 'Cấp 3', 'Cấp 4', '∑'];
+const TEN_DONG_PHAT_SINH_KHAC_ = 'Công tác phát sinh khác trong kỳ';
 
 function chuanHoaCauTrucCongViecSheetHienTai() {
   try {
@@ -992,7 +998,7 @@ function chuanHoaCauTrucCongViecSheetHienTai() {
     const ui = SpreadsheetApp.getUi();
     const nutBam = ui.alert(
       'Xác nhận cập nhật lại STT sau khi đổi cấu trúc',
-      'Sau khi đổi giá trị Nhóm / Cấp 1 / Cấp 2 / Cấp 3 / Cấp 4 ở cột A, cần chạy lại chức năng này để hệ thống đánh lại STT ở cột A, cập nhật note kỹ thuật và tự điền mã dự án cho dòng con nếu cha có mã dự án.\n\nHệ thống không tự cập nhật ngay khi vừa sửa cột A.\n\nNên chạy trước khi gửi mail hoặc chuyển việc tồn.',
+      'Sau khi đổi giá trị Dự án / Cấp 1 / Cấp 2 / Cấp 3 / Cấp 4 / ∑ ở cột A, cần chạy lại chức năng này để hệ thống đánh lại STT ở cột A, cập nhật note kỹ thuật và tự điền mã dự án cho dòng con nếu cha có mã dự án.\n\nHệ thống không tự cập nhật ngay khi vừa sửa cột A.\n\nNên chạy trước khi gửi mail hoặc chuyển việc tồn.',
       ui.ButtonSet.OK_CANCEL
     );
     if (nutBam !== ui.Button.OK) {
@@ -1039,6 +1045,7 @@ function chuanHoaCauTrucCongViecTrenSheet_(sheet) {
   const ketQuaC = [];
   const ketQuaNoteA = [];
   const canhBao = [];
+  let dangOVungPhatSinh = false;
 
   for (let i = 0; i < values.length; i++) {
     const soDongHienTai = dongBatDau + i;
@@ -1048,35 +1055,44 @@ function chuanHoaCauTrucCongViecTrenSheet_(sheet) {
     const giaTriH = String(values[i][7] || '').trim();
     const giaTriI = String(values[i][8] || '').trim();
 
-    if (laDongTongDongBo_(giaTriA)) {
+    if (!giaTriA && !giaTriB) {
+      ketQuaA.push(['']);
+      ketQuaC.push([giaTriC]);
+      ketQuaNoteA.push([notesA[i][0] || '']);
+      continue;
+    }
+
+    if (chuanHoaTextStt_(giaTriB) === chuanHoaTextStt_(TEN_DONG_PHAT_SINH_KHAC_)) {
+      dangOVungPhatSinh = true;
+      for (let level = 0; level < boDemTheoCap.length; level++) {
+        boDemTheoCap[level] = 0;
+        maCvTheoCap[level] = '';
+        maDuAnTheoCap[level] = '';
+      }
+
+      ketQuaA.push(['']);
+      ketQuaC.push([giaTriC]);
+      ketQuaNoteA.push([notesA[i][0] || '']);
+      continue;
+    }
+
+    const loaiDong = xacDinhLoaiDongStt_(giaTriA);
+
+    if (loaiDong === 'TONG') {
+      ketQuaA.push(['∑']);
+      ketQuaC.push([giaTriC]);
+      ketQuaNoteA.push([notesA[i][0] || '']);
+      continue;
+    }
+
+    if (loaiDong === null) {
       ketQuaA.push([giaTriA]);
       ketQuaC.push([giaTriC]);
       ketQuaNoteA.push([notesA[i][0] || '']);
       continue;
     }
 
-    if (giaTriA === '' && giaTriB === '' && giaTriC === '' && giaTriH === '' && giaTriI === '') {
-      ketQuaA.push([giaTriA]);
-      ketQuaC.push([giaTriC]);
-      ketQuaNoteA.push([notesA[i][0] || '']);
-      continue;
-    }
-
-    const cap = xacDinhCapCongViecTuGiaTriA_(giaTriA);
-    if (cap === null) {
-      ketQuaA.push([giaTriA]);
-      ketQuaC.push([giaTriC]);
-      ketQuaNoteA.push([notesA[i][0] || '']);
-      continue;
-    }
-
-    if (!coDuChaChoCapCongViec_(cap, maCvTheoCap)) {
-      canhBao.push('Dòng ' + soDongHienTai + ': thiếu dòng cha hợp lệ cho ' + giaTriA);
-      ketQuaA.push([giaTriA]);
-      ketQuaC.push([giaTriC]);
-      ketQuaNoteA.push([notesA[i][0] || '']);
-      continue;
-    }
+    const cap = loaiDong === 'DU_AN' ? 0 : loaiDong;
 
     capNhatBoDemTheoCap_(boDemTheoCap, cap);
     const maHienThi = taoMaHienThiTheoCap_(boDemTheoCap, cap);
@@ -1099,17 +1115,18 @@ function chuanHoaCauTrucCongViecTrenSheet_(sheet) {
       maDuAnTheoCap[level] = '';
     }
 
-    ketQuaA.push([maHienThi]);
+    ketQuaA.push([String(maHienThi)]);
     ketQuaC.push([maDuAnMoi]);
     ketQuaNoteA.push([taoNoteCongViec_(maCv, cap, maCha, noteCu.chuyen_tu || '')]);
   }
 
   const rangeA = sheet.getRange(dongBatDau, 1, ketQuaA.length, 1);
+  rangeA.clearDataValidations();
+  rangeA.clearNote();
   rangeA.setNumberFormat('@');
   rangeA.setValues(ketQuaA);
 
   sheet.getRange(dongBatDau, 3, ketQuaC.length, 1).setValues(ketQuaC);
-  rangeA.setNotes(ketQuaNoteA);
 
   return {
     sheet: sheet.getName(),
@@ -1120,22 +1137,9 @@ function chuanHoaCauTrucCongViecTrenSheet_(sheet) {
 }
 
 function xacDinhCapCongViecTuGiaTriA_(giaTriA) {
-  const a = String(giaTriA || '').trim();
-  if (!a || laDongTongDongBo_(a)) {
-    return null;
-  }
-
-  const viTriDropdown = DS_CAP_CONG_VIEC_DROPDOWN_.indexOf(a);
-  if (viTriDropdown !== -1) {
-    return viTriDropdown;
-  }
-
-  if (/^[IVXLCDM]+$/i.test(a)) return 0;
-  if (/^\d+$/.test(a)) return 1;
-  if (/^\d+\.\d+$/.test(a)) return 2;
-  if (/^\d+\.\d+\.\d+$/.test(a)) return 3;
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(a)) return 4;
-
+  const loaiDong = xacDinhLoaiDongStt_(giaTriA);
+  if (loaiDong === 'DU_AN') return 0;
+  if (loaiDong >= 1 && loaiDong <= 4) return loaiDong;
   return null;
 }
 
@@ -1162,7 +1166,7 @@ function capNhatBoDemTheoCap_(boDemTheoCap, cap) {
 
 function taoMaHienThiTheoCap_(boDemTheoCap, cap) {
   if (cap === 0) {
-    return chuyenSoThanhLaMa_(boDemTheoCap[0]);
+    return doiSoSangLaMaStt_(boDemTheoCap[0]);
   }
 
   const parts = [];
@@ -1170,6 +1174,66 @@ function taoMaHienThiTheoCap_(boDemTheoCap, cap) {
     parts.push(String(boDemTheoCap[i]));
   }
   return parts.join('.');
+}
+
+function xacDinhLoaiDongStt_(value) {
+  const s = String(value || '').trim();
+
+  if (!s) return null;
+
+  if (s === 'Dự án' || s === 'Nhóm') return 'DU_AN';
+  if (s === 'Cấp 1') return 1;
+  if (s === 'Cấp 2') return 2;
+  if (s === 'Cấp 3') return 3;
+  if (s === 'Cấp 4') return 4;
+
+  if (s === '∑' || s === 'Σ') return 'TONG';
+
+  if (/^[IVXLCDM]+$/.test(s)) return 'DU_AN';
+
+  if (/^\d+(\.\d+)*$/.test(s)) {
+    const cap = s.split('.').length;
+    return cap >= 1 && cap <= 4 ? cap : null;
+  }
+
+  return null;
+}
+
+function doiSoSangLaMaStt_(num) {
+  const map = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I']
+  ];
+
+  let n = Number(num);
+  let result = '';
+
+  map.forEach(function(item) {
+    while (n >= item[0]) {
+      result += item[1];
+      n -= item[0];
+    }
+  });
+
+  return result;
+}
+
+function chuanHoaTextStt_(text) {
+  return String(text || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
 }
 
 function chuyenSoThanhLaMa_(so) {
@@ -1280,5 +1344,6 @@ function timMaDuAnChaGanNhat_(maDuAnTheoCap, capHienTai) {
   }
   return '';
 }
+
 
 
