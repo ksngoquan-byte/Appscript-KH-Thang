@@ -28,6 +28,9 @@ function taoRegexSheetThangTheoMa_(monthSheetCode) {
 }
 
 const DONG_BAT_DAU_DONG_BO_CONG_VIEC_TON_ = 6;
+const SO_COT_FORM_BAO_CAO_THANG_ = 17; // A:Q
+const COT_DANH_GIA_CONG_VIEC_TON_ = 15; // O - Đánh giá
+const COT_Y_KIEN_CHI_DAO_ = 17; // Q
 const KHOA_BATCH_DONG_BO_CONG_VIEC_TON_TIMEOUT_MS_ = 30000;
 const DEVELOPER_METADATA_KEY_CONG_VIEC_TON_ = 'AUTO_CONG_VIEC_TON_MARKER';
 const DS_MA_NHOM_LA_MA_MAC_DINH_ = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
@@ -286,7 +289,7 @@ function phanTichDongConTrongNhomDeDongBo_(sheet, thongTinNhom) {
 
 function layBanDoCongViecTonTheoNhom_(sheet, config, tapTrangThaiCongViecTon) {
   const dongCuoi = sheet.getLastRow();
-  const cotCuoi = Math.max(sheet.getLastColumn(), 16);
+  const cotCuoi = Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_);
   if (dongCuoi < 6) return {};
 
   const displayValues = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
@@ -302,7 +305,7 @@ function layBanDoCongViecTonTheoNhom_(sheet, config, tapTrangThaiCongViecTon) {
     const giaTriC = String(displayValues[r][2] || '').trim();
     const giaTriH = String(displayValues[r][7] || '').trim();
     const giaTriI = String(displayValues[r][8] || '').trim();
-    const giaTriN = String(rawValues[r][13] || '').trim();
+    const giaTriN = String(rawValues[r][COT_DANH_GIA_CONG_VIEC_TON_ - 1] || '').trim();
 
     if (laDongTieuDeNhomDongBo_(giaTriA, giaTriB)) {
       maNhomHienTai = giaTriA;
@@ -333,7 +336,7 @@ function layBanDoCongViecTonTheoNhom_(sheet, config, tapTrangThaiCongViecTon) {
 }
 
 function layThongTinCongViecTaiDong_(sheet, soDong) {
-  const range = sheet.getRange(soDong, 1, 1, Math.max(sheet.getLastColumn(), 16));
+  const range = sheet.getRange(soDong, 1, 1, Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_));
   const displayValues = range.getDisplayValues()[0];
   const rawValues = range.getValues()[0];
   const giaTriA = String(displayValues[0] || '').trim();
@@ -348,7 +351,7 @@ function layThongTinCongViecTaiDong_(sheet, soDong) {
     giaTriC: giaTriC,
     giaTriH: String(displayValues[7] || '').trim(),
     giaTriI: String(displayValues[8] || '').trim(),
-    giaTriN: String(rawValues[13] || '').trim()
+    giaTriN: String(rawValues[COT_DANH_GIA_CONG_VIEC_TON_ - 1] || '').trim()
   };
 }
 
@@ -437,7 +440,7 @@ function laMaCongViecPhanCapDongBo_(giaTriA) {
 
 function layThongTinNhomTrongSheet_(sheet, maNhomCanTim) {
   const dongCuoi = sheet.getLastRow();
-  const cotCuoi = Math.max(sheet.getLastColumn(), 16);
+  const cotCuoi = Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_);
   if (dongCuoi < 6) return null;
 
   const values = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
@@ -550,8 +553,8 @@ function chenThemDongTrongCuoiNhom_(sheet, thongTinNhom) {
     sheet.insertRowsBefore(dongChen, 1);
 
     const dongMoi = dongChen;
-    const rangeMoi = sheet.getRange(dongMoi, 1, 1, 16);
-    const rangeMau = sheet.getRange(dongMau, 1, 1, 16);
+    const rangeMoi = sheet.getRange(dongMoi, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
+    const rangeMau = sheet.getRange(dongMau, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
 
     // Quan trọng: phá merge và xóa format kế thừa của dòng vừa chèn
     rangeMoi.breakApart();
@@ -578,8 +581,8 @@ function chenThemDongTrongCuoiNhom_(sheet, thongTinNhom) {
     sheet.getRange(dongMoi, 1).clearContent().clearNote();
 
     // Chỉ xóa nội dung nhập tay, giữ format/drodpown vừa copy
-    sheet.getRange(dongMoi, 2, 1, 15).clearContent();
-    sheet.getRange(dongMoi, 2, 1, 15).clearNote();
+    sheet.getRange(dongMoi, 2, 1, SO_COT_FORM_BAO_CAO_THANG_ - 1).clearContent();
+    sheet.getRange(dongMoi, 2, 1, SO_COT_FORM_BAO_CAO_THANG_ - 1).clearNote();
 
     Logger.log(
       'Da chen them 1 dong trong dung mau tai sheet=%s | nhom=%s | dong moi=%s | dong mau=%s',
@@ -965,10 +968,10 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   if (thongTinDong.dongDanhGiaKetThuc >= thongTinDong.dongDanhGiaBatDau) {
     if (now.getTime() <= moc.mocKhoaDanhGia.getTime()) {
       dsVungMo.push({
-        moTa: 'Danh gia K:O',
+        moTa: 'Danh gia L:P',
         range: sheet.getRange(
           thongTinDong.dongDanhGiaBatDau,
-          11,
+          12,
           thongTinDong.dongDanhGiaKetThuc - thongTinDong.dongDanhGiaBatDau + 1,
           5
         )
@@ -979,10 +982,10 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   if (thongTinDong.dongCotPKetThuc >= thongTinDong.dongCotPBatDau) {
     if (now.getTime() <= moc.mocKhoaCotP.getTime()) {
       dsVungMo.push({
-        moTa: 'Cot P',
+        moTa: 'Cot Q',
         range: sheet.getRange(
           thongTinDong.dongCotPBatDau,
-          16,
+          COT_Y_KIEN_CHI_DAO_,
           thongTinDong.dongCotPKetThuc - thongTinDong.dongCotPBatDau + 1,
           1
         )
@@ -1264,10 +1267,10 @@ function layDanhSachMocTriggerProtection_() {
   var danhSachSheet = layDanhSachSheetThang_(ss, config);
   var danhSachMocRaw = [];
   var danhSachTruongMoc = [
-    { key: 'mocKhoaKeHoachDauThang', moTa: 'Khoa khoi ke hoach A:J dau thang' },
-    { key: 'mocKhoaKeHoachPhatSinh', moTa: 'Khoa khoi ke hoach A:J phan phat sinh' },
-    { key: 'mocKhoaDanhGia', moTa: 'Khoa khoi danh gia K:O' },
-    { key: 'mocKhoaCotP', moTa: 'Khoa cot P' },
+    { key: 'mocKhoaKeHoachDauThang', moTa: 'Khoa khoi ke hoach A:K dau thang' },
+    { key: 'mocKhoaKeHoachPhatSinh', moTa: 'Khoa khoi ke hoach A:K phan phat sinh' },
+    { key: 'mocKhoaDanhGia', moTa: 'Khoa khoi danh gia L:P' },
+    { key: 'mocKhoaCotP', moTa: 'Khoa cot Q' },
     { key: 'mocKhoaToanSheet', moTa: 'Khoa toan bo sheet thang truoc' }
   ];
 

@@ -86,7 +86,7 @@ function test_07_CongViecTon_TheoSheetHienTai() {
           cotC: ds.map(function(item) { return item.giaTriC; }),
           cotH: ds.map(function(item) { return item.giaTriH; }),
           cotI: ds.map(function(item) { return item.giaTriI; }),
-          cotN: ds.map(function(item) { return item.giaTriN; })
+          cotO_DanhGia: ds.map(function(item) { return item.giaTriN; })
         };
       })
     }
@@ -102,7 +102,7 @@ function test_07_01_DumpDongSheetHienTai_CongViecTon() {
   var config = docCauHinh_(ss);
   var tapTrangThaiCongViecTon = layTapTrangThaiCongViecTon_(ss, config);
   var dongCuoi = Math.min(sheet.getLastRow(), 40);
-  var range = sheet.getRange(1, 1, dongCuoi, Math.max(sheet.getLastColumn(), 14));
+  var range = sheet.getRange(1, 1, dongCuoi, Math.max(sheet.getLastColumn(), 15));
   var displayValues = range.getDisplayValues();
   var rawValues = range.getValues();
   var dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
@@ -113,19 +113,19 @@ function test_07_01_DumpDongSheetHienTai_CongViecTon() {
     var giaTriA = String(displayValues[r][0] || '').trim();
     var giaTriB = String(displayValues[r][1] || '').trim();
     var giaTriC = String(displayValues[r][2] || '').trim();
-    var giaTriN = String(rawValues[r][13] || '').trim();
-    var trangThaiDaChuanHoa = chuanHoaTrangThaiCongViecTon_(giaTriN);
+    var giaTriO = String(rawValues[r][14] || '').trim();
+    var trangThaiDaChuanHoa = chuanHoaTrangThaiCongViecTon_(giaTriO);
 
     duLieu.push({
       soDong: soDong,
       cotA: giaTriA,
       cotB: giaTriB,
       cotC: giaTriC,
-      cotN: giaTriN,
-      cotNChuanHoa: trangThaiDaChuanHoa,
+      cotO_DanhGia: giaTriO,
+      cotOChuanHoa: trangThaiDaChuanHoa,
       laTieuDeNhom: laDongTieuDeNhomDongBo_(giaTriA, giaTriB),
       laDongCongViecCon: laDongCongViecConDongBo_(giaTriA, giaTriB, giaTriC),
-      laTrangThaiTon: laTrangThaiCongViecTon_(giaTriN, tapTrangThaiCongViecTon)
+      laTrangThaiTon: laTrangThaiCongViecTon_(giaTriO, tapTrangThaiCongViecTon)
     });
   }
 
@@ -153,20 +153,20 @@ function test_07_02_DocCotN_SheetHienTai() {
   var duLieu = [];
 
   for (var soDong = dongBatDau; soDong <= dongKetThuc; soDong++) {
-    var oN = sheet.getRange(soDong, 14);
+    var oO = sheet.getRange(soDong, 15);
     duLieu.push({
       soDong: soDong,
       a: String(sheet.getRange(soDong, 1).getDisplayValue() || '').trim(),
       b: String(sheet.getRange(soDong, 2).getDisplayValue() || '').trim(),
       c: String(sheet.getRange(soDong, 3).getDisplayValue() || '').trim(),
-      n_getValue: String(oN.getValue() || '').trim(),
-      n_getDisplayValue: String(oN.getDisplayValue() || '').trim(),
-      n_getFormula: String(oN.getFormula() || '').trim()
+      o_getValue: String(oO.getValue() || '').trim(),
+      o_getDisplayValue: String(oO.getDisplayValue() || '').trim(),
+      o_getFormula: String(oO.getFormula() || '').trim()
     });
   }
 
   var ketQua = {
-    ten: 'doc_cot_n_sheet_hien_tai',
+    ten: 'doc_cot_o_danh_gia_sheet_hien_tai',
     duLieu: {
       sheet: sheet.getName(),
       dongBatDau: dongBatDau,
@@ -175,7 +175,7 @@ function test_07_02_DocCotN_SheetHienTai() {
     }
   };
 
-  Logger.log('[TEST] test_07_02_DocCotN_SheetHienTai => %s', JSON.stringify(ketQua));
+  Logger.log('[TEST] test_07_02_DocCotO_DanhGia_SheetHienTai => %s', JSON.stringify(ketQua));
   return ketQua;
 }
 
@@ -187,7 +187,7 @@ function test_07_03_DocVungMNO_SheetHienTai() {
   var duLieu = [];
 
   for (var soDong = dongBatDau; soDong <= dongKetThuc; soDong++) {
-    var vung = sheet.getRange(soDong, 13, 1, 3);
+    var vung = sheet.getRange(soDong, 14, 1, 3);
     var raw = vung.getValues()[0];
     var display = vung.getDisplayValues()[0];
 
@@ -196,17 +196,17 @@ function test_07_03_DocVungMNO_SheetHienTai() {
       a: String(sheet.getRange(soDong, 1).getDisplayValue() || '').trim(),
       b: String(sheet.getRange(soDong, 2).getDisplayValue() || '').trim(),
       c: String(sheet.getRange(soDong, 3).getDisplayValue() || '').trim(),
-      m_getValue: String(raw[0] || '').trim(),
-      m_getDisplayValue: String(display[0] || '').trim(),
-      n_getValue: String(raw[1] || '').trim(),
-      n_getDisplayValue: String(display[1] || '').trim(),
-      o_getValue: String(raw[2] || '').trim(),
-      o_getDisplayValue: String(display[2] || '').trim()
+      n_getValue: String(raw[0] || '').trim(),
+      n_getDisplayValue: String(display[0] || '').trim(),
+      o_getValue: String(raw[1] || '').trim(),
+      o_getDisplayValue: String(display[1] || '').trim(),
+      p_getValue: String(raw[2] || '').trim(),
+      p_getDisplayValue: String(display[2] || '').trim()
     });
   }
 
   var ketQua = {
-    ten: 'doc_vung_mno_sheet_hien_tai',
+    ten: 'doc_vung_nop_sheet_hien_tai',
     duLieu: {
       sheet: sheet.getName(),
       dongBatDau: dongBatDau,
@@ -215,7 +215,7 @@ function test_07_03_DocVungMNO_SheetHienTai() {
     }
   };
 
-  Logger.log('[TEST] test_07_03_DocVungMNO_SheetHienTai => %s', JSON.stringify(ketQua));
+  Logger.log('[TEST] test_07_03_DocVungNOP_SheetHienTai => %s', JSON.stringify(ketQua));
   return ketQua;
 }
 
@@ -223,8 +223,8 @@ function test_07_04_XacDinhCotDanhGia_ThucTe() {
   var ss = layBangTinhDangMo_();
   var sheet = ss.getActiveSheet();
   var dongHeader = 4;
-  var cotBatDau = 11; // K
-  var soCot = 6; // K:P
+  var cotBatDau = 12; // L
+  var soCot = 6; // L:Q
   var headers = sheet.getRange(dongHeader, cotBatDau, 1, soCot).getDisplayValues()[0];
   var dataRange = sheet.getRange(6, cotBatDau, Math.min(Math.max(sheet.getLastRow() - 5, 0), 10), soCot);
   var displayValues = dataRange.getDisplayValues();
