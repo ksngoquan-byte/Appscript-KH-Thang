@@ -1,4 +1,4 @@
-﻿function chayToMau() {
+function chayToMau() {
   try {
     const ss = layBangTinhDangMo_();
     const config = docCauHinh_(ss);
@@ -36,7 +36,8 @@
 
 function toMauSheetThang_(sheet) {
   const dongCuoi = sheet.getLastRow();
-  const cotCuoi = Math.min(sheet.getLastColumn(), 17); // A:Q
+  const soCotForm = typeof SO_COT_FORM_BAO_CAO_THANG_ !== 'undefined' ? SO_COT_FORM_BAO_CAO_THANG_ : 17;
+  const cotCuoi = Math.min(sheet.getLastColumn(), soCotForm); // A:Q
 
   const COT_KE_HOACH_BD = 1;   // A
   const COT_KE_HOACH_KT = 11;  // K
@@ -56,6 +57,7 @@ function toMauSheetThang_(sheet) {
   const values = range.getDisplayValues();
   const backgrounds = range.getBackgrounds();
   const fontColors = range.getFontColors();
+  const fontWeights = range.getFontWeights();
 
   let soDongCon = 0;
   let soDongTong = 0;
@@ -68,6 +70,7 @@ function toMauSheetThang_(sheet) {
 
     if (laDongTieuDeNhom_(giaTriA, giaTriB)) {
       dsDongTieuDeNhom.push(r);
+      toMauDongNhomDuAnTrongMang_(backgrounds, fontColors, fontWeights, r, cotCuoi);
     }
   }
 
@@ -111,6 +114,7 @@ function toMauSheetThang_(sheet) {
 
   range.setBackgrounds(backgrounds);
   range.setFontColors(fontColors);
+  range.setFontWeights(fontWeights);
 
   Logger.log(
     'Sheet %s | hàng con: %s | hàng tổng: %s | nhóm: %s',
@@ -128,10 +132,31 @@ function toMauSheetThang_(sheet) {
 
 function laDongTieuDeNhom_(giaTriA, giaTriB) {
   const a = String(giaTriA || '').trim();
-  const b = String(giaTriB || '').trim();
-  return /^(I|II|III|IV|V|VI|VII|VIII|IX|X)$/i.test(a) && b !== '';
+  return /^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)$/i.test(a);
 }
 
 function laDongTong_(giaTriA) {
   return String(giaTriA || '').trim() === '∑';
+}
+
+function toMauDongNhomDuAn_(sheet, soDong) {
+  const soCotForm = typeof SO_COT_FORM_BAO_CAO_THANG_ !== 'undefined' ? SO_COT_FORM_BAO_CAO_THANG_ : 17;
+  const cotCuoi = Math.min(sheet.getLastColumn(), soCotForm);
+  if (!sheet || !soDong || cotCuoi <= 0) {
+    return;
+  }
+
+  const range = sheet.getRange(soDong, 1, 1, cotCuoi);
+  range
+    .setBackground('#1F4E78')
+    .setFontColor('#FFFFFF')
+    .setFontWeight('bold');
+}
+
+function toMauDongNhomDuAnTrongMang_(backgrounds, fontColors, fontWeights, rowIndex, cotCuoi) {
+  for (let c = 0; c < cotCuoi; c++) {
+    backgrounds[rowIndex][c] = '#1F4E78';
+    fontColors[rowIndex][c] = '#FFFFFF';
+    fontWeights[rowIndex][c] = 'bold';
+  }
 }
