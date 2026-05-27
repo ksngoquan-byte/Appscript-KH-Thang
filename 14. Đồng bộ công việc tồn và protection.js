@@ -159,40 +159,355 @@ function xacNhanDongBoCongViecTonThuCong_(sheetNguon, sheetDich) {
 }
 
 function dongBoToanBoCongViecTonGiuaHaiSheet_(sheetNguon, sheetDich, config, tapTrangThaiCongViecTon) {
-  const banDoCongViecTon = layBanDoCongViecTonTheoNhom_(sheetNguon, config, tapTrangThaiCongViecTon);
-  const dsNhomCoViecTon = Object.keys(banDoCongViecTon);
-  const dsNhomCoDongAuto = layDanhSachNhomCoDongAuto_(sheetDich);
-  const dsMaNhom = hopNhatDanhSachMaNhomDongBo_(dsNhomCoViecTon, dsNhomCoDongAuto);
+  const dsDongCanChuyen = layDanhSachDongChuyenViecTonTheoDuAnWbs_(sheetNguon, config, tapTrangThaiCongViecTon);
+  const tapKeyCanGiu = {};
+  dsDongCanChuyen.forEach(function(item) {
+    tapKeyCanGiu[item.key] = true;
+  });
+
+  const soDongXoa = xoaDongAutoKhongConTrongDanhSach_(sheetDich, tapKeyCanGiu);
+  let banDoDich = lapBanDoDongDuAnWbsTrongSheet_(sheetDich);
   const ketQuaTongHop = {
     sheetNguon: sheetNguon.getName(),
     sheetDich: sheetDich.getName(),
-    tongNhom: dsMaNhom.length,
-    tongViecTon: 0,
+    tongNhom: demSoDuAnTrongDanhSachChuyen_(dsDongCanChuyen),
+    tongViecTon: demSoViecTonTrongDanhSachChuyen_(dsDongCanChuyen),
     tongDongGhi: 0,
-    tongDongXoa: 0,
+    tongDongXoa: soDongXoa,
     tongDongChenMoi: 0,
     tongBoQua: 0,
     chiTietNhom: []
   };
+  let dongGhiGanNhat = 0;
 
-  dsMaNhom.forEach(function(maNhom) {
-    const ketQuaNhom = dongBoMotNhomSangThangSau_(
-      sheetNguon,
-      sheetDich,
-      maNhom,
-      banDoCongViecTon[maNhom] || [],
-      config,
-      tapTrangThaiCongViecTon
-    );
-    ketQuaTongHop.tongViecTon += ketQuaNhom.tongViecTon;
-    ketQuaTongHop.tongDongGhi += ketQuaNhom.soDongGhi;
-    ketQuaTongHop.tongDongXoa += ketQuaNhom.soDongXoa;
-    ketQuaTongHop.tongDongChenMoi += ketQuaNhom.soDongChenMoi;
-    ketQuaTongHop.tongBoQua += ketQuaNhom.soDongBoQua;
-    ketQuaTongHop.chiTietNhom.push(ketQuaNhom);
+  dsDongCanChuyen.forEach(function(item) {
+    let dongDich = banDoDich[item.key] || 0;
+    const marker = taoMarkerCongViecTonTheoKey_(sheetNguon.getName(), item);
+
+    if (!dongDich) {
+      dongDich = chenDongChuyenViecTonTheoMauNguon_(sheetDich, item, dongGhiGanNhat);
+      ketQuaTongHop.tongDongChenMoi++;
+      banDoDich = lapBanDoDongDuAnWbsTrongSheet_(sheetDich);
+    }
+
+    if (!dongDich) {
+      ketQuaTongHop.tongBoQua++;
+      return;
+    }
+
+    ghiDongChuyenViecTonTheoDuAnWbs_(sheetDich, dongDich, item, marker);
+    dongGhiGanNhat = dongDich;
+    ketQuaTongHop.tongDongGhi++;
+
+    if (item.loai === 'PROJECT') {
+      ketQuaTongHop.chiTietNhom.push({
+        maNhom: item.giaTriA,
+        projectCode: item.projectCode,
+        projectName: item.projectName,
+        soDongDich: dongDich
+      });
+    }
   });
 
   return ketQuaTongHop;
+}
+
+function layDanhSachDongChuyenViecTonTheoDuAnWbs_(sheet, config, tapTrangThaiCongViecTon) {
+  const dongCuoi = sheet.getLastRow();
+  const cotCuoi = Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_);
+  if (dongCuoi < 5) return [];
+
+  const range = sheet.getRange(1, 1, dongCuoi, cotCuoi);
+  const displayValues = range.getDisplayValues();
+  const rawValues = range.getValues();
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
+  const dsKetQua = [];
+  const daCoKey = {};
+  let duAnHienTai = null;
+  let wbsTheoMa = {};
+
+  for (let r = dongBatDauQuet - 1; r < displayValues.length; r++) {
+    const soDong = r + 1;
+    const giaTriA = String(displayValues[r][0] || '').trim();
+    const giaTriB = String(displayValues[r][1] || '').trim();
+    const giaTriC = String(displayValues[r][2] || '').trim();
+    const trangThaiDanhGia = String(rawValues[r][COT_DANH_GIA_CONG_VIEC_TON_ - 1] || '').trim();
+
+    if (laDongTongDongBo_(giaTriA)) {
+      break;
+    }
+
+    if (laDongTieuDeNhomDongBo_(giaTriA, giaTriB)) {
+      duAnHienTai = taoDongChuyenViecTon_(sheet, soDong, displayValues[r], rawValues[r], 'PROJECT', null);
+      wbsTheoMa = {};
+      continue;
+    }
+
+    if (!duAnHienTai || !laDongCongViecConDongBo_(giaTriA, giaTriB, giaTriC)) {
+      continue;
+    }
+
+    const dongWbs = taoDongChuyenViecTon_(sheet, soDong, displayValues[r], rawValues[r], 'WBS', duAnHienTai);
+    wbsTheoMa[giaTriA] = dongWbs;
+
+    if (!laTrangThaiCongViecTon_(trangThaiDanhGia, tapTrangThaiCongViecTon)) {
+      continue;
+    }
+
+    dongWbs.laViecTon = true;
+    themDongChuyenNeuChuaCo_(dsKetQua, daCoKey, duAnHienTai);
+    layDanhSachMaWbsChaVaHienTai_(giaTriA).forEach(function(maWbs) {
+      const dongCanThem = wbsTheoMa[maWbs];
+      if (dongCanThem) {
+        themDongChuyenNeuChuaCo_(dsKetQua, daCoKey, dongCanThem);
+      }
+    });
+  }
+
+  return dsKetQua;
+}
+
+function taoDongChuyenViecTon_(sheet, soDong, displayRow, rawRow, loai, duAnHienTai) {
+  const giaTriA = String(displayRow[0] || '').trim();
+  const giaTriB = String(displayRow[1] || '').trim();
+  const giaTriC = String(displayRow[2] || '').trim();
+  const projectCode = loai === 'PROJECT'
+    ? giaTriC
+    : String(duAnHienTai && duAnHienTai.projectCode || giaTriC || '').trim();
+  const projectName = loai === 'PROJECT'
+    ? giaTriB
+    : String(duAnHienTai && duAnHienTai.projectName || '').trim();
+  const key = loai === 'PROJECT'
+    ? taoKeyDuAnChuyenViecTon_(projectCode, projectName)
+    : taoKeyWbsChuyenViecTon_(projectCode, giaTriA, giaTriB);
+
+  return {
+    loai: loai,
+    key: key,
+    sheetNguon: sheet,
+    soDongNguon: soDong,
+    giaTriA: giaTriA,
+    giaTriB: giaTriB,
+    giaTriC: giaTriC,
+    projectCode: projectCode,
+    projectName: projectName,
+    rawRow: rawRow.slice(0, SO_COT_FORM_BAO_CAO_THANG_)
+  };
+}
+
+function themDongChuyenNeuChuaCo_(dsKetQua, daCoKey, item) {
+  if (!item || !item.key || daCoKey[item.key]) {
+    return;
+  }
+
+  daCoKey[item.key] = true;
+  dsKetQua.push(item);
+}
+
+function layDanhSachMaWbsChaVaHienTai_(wbsCode) {
+  const parts = String(wbsCode || '').trim().split('.');
+  const ketQua = [];
+
+  for (let i = 1; i <= parts.length; i++) {
+    ketQua.push(parts.slice(0, i).join('.'));
+  }
+
+  return ketQua;
+}
+
+function lapBanDoDongDuAnWbsTrongSheet_(sheet) {
+  const dongCuoi = sheet.getLastRow();
+  const cotCuoi = Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_);
+  const ketQua = {};
+  if (dongCuoi < 5) return ketQua;
+
+  const values = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
+  let duAnHienTai = null;
+
+  for (let r = dongBatDauQuet - 1; r < values.length; r++) {
+    const soDong = r + 1;
+    const giaTriA = String(values[r][0] || '').trim();
+    const giaTriB = String(values[r][1] || '').trim();
+    const giaTriC = String(values[r][2] || '').trim();
+
+    if (laDongTongDongBo_(giaTriA)) {
+      break;
+    }
+
+    if (laDongTieuDeNhomDongBo_(giaTriA, giaTriB)) {
+      duAnHienTai = {
+        projectCode: giaTriC,
+        projectName: giaTriB
+      };
+      ketQua[taoKeyDuAnChuyenViecTon_(giaTriC, giaTriB)] = soDong;
+      continue;
+    }
+
+    if (!duAnHienTai || !laDongCongViecConDongBo_(giaTriA, giaTriB, giaTriC)) {
+      continue;
+    }
+
+    ketQua[taoKeyWbsChuyenViecTon_(duAnHienTai.projectCode || giaTriC, giaTriA, giaTriB)] = soDong;
+  }
+
+  return ketQua;
+}
+
+function chenDongChuyenViecTonTheoMauNguon_(sheetDich, item, dongGhiGanNhat) {
+  const dongTong = timDongTongTheoCotA_(sheetDich);
+  let dongMoi = 0;
+
+  if (dongGhiGanNhat > 0) {
+    sheetDich.insertRowsAfter(dongGhiGanNhat, 1);
+    dongMoi = dongGhiGanNhat + 1;
+  } else if (dongTong > 0) {
+    sheetDich.insertRowsBefore(dongTong, 1);
+    dongMoi = dongTong;
+  } else {
+    const dongCuoi = Math.max(sheetDich.getLastRow(), 1);
+    sheetDich.insertRowsAfter(dongCuoi, 1);
+    dongMoi = dongCuoi + 1;
+  }
+
+  const rangeMoi = sheetDich.getRange(dongMoi, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
+  const rangeMau = item.sheetNguon.getRange(item.soDongNguon, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
+
+  rangeMoi.breakApart();
+  rangeMoi.clearFormat();
+  rangeMoi.clearDataValidations();
+  rangeMoi.clearNote();
+  rangeMoi.clearContent();
+  rangeMau.copyTo(rangeMoi, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  rangeMau.copyTo(rangeMoi, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+  sheetDich.setRowHeight(dongMoi, item.sheetNguon.getRowHeight(item.soDongNguon));
+
+  return dongMoi;
+}
+
+function ghiDongChuyenViecTonTheoDuAnWbs_(sheet, soDong, item, marker) {
+  const output = new Array(SO_COT_FORM_BAO_CAO_THANG_).fill('');
+  const giaTriAHienTai = String(sheet.getRange(soDong, 1).getDisplayValue() || '').trim();
+  const giaTriBHienTai = String(sheet.getRange(soDong, 2).getDisplayValue() || '').trim();
+
+  for (let c = 0; c < 11; c++) {
+    output[c] = item.rawRow[c];
+  }
+
+  if (item.loai === 'PROJECT') {
+    output[0] = laDongTieuDeNhomDongBo_(giaTriAHienTai, giaTriBHienTai)
+      ? giaTriAHienTai
+      : doiSoSangLaMaDongBo_(demSoDongDuAnTruocDong_(sheet, soDong) + 1);
+  }
+
+  const range = sheet.getRange(soDong, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
+  range.clearContent();
+  range.clearNote();
+  range.setValues([output]);
+  sheet.getRange(soDong, 12, 1, 6).clearContent().clearNote();
+  datMarkerCongViecTonTheoDong_(sheet, soDong, marker);
+
+  if (item.loai === 'PROJECT' && typeof toMauDongNhomDuAn_ === 'function') {
+    toMauDongNhomDuAn_(sheet, soDong);
+  }
+}
+
+function xoaDongAutoKhongConTrongDanhSach_(sheet, tapKeyCanGiu) {
+  const dongCuoi = sheet.getLastRow();
+  let soDongXoa = 0;
+
+  for (let soDong = dongCuoi; soDong >= 1; soDong--) {
+    const marker = layMarkerCongViecTonTheoDong_(sheet, soDong);
+    const key = tachKeyTuMarkerCongViecTon_(marker);
+    if (key && !tapKeyCanGiu[key]) {
+      sheet.getRange(soDong, 1, 1, SO_COT_FORM_BAO_CAO_THANG_).clearContent().clearNote();
+      xoaMarkerCongViecTonTheoDong_(sheet, soDong);
+      soDongXoa++;
+    }
+  }
+
+  return soDongXoa;
+}
+
+function taoKeyDuAnChuyenViecTon_(projectCode, projectName) {
+  return 'PROJECT|' + chuanHoaKeyChuyenViecTon_(projectCode) + '|' + chuanHoaKeyChuyenViecTon_(projectName);
+}
+
+function taoKeyWbsChuyenViecTon_(projectCode, wbsCode, taskName) {
+  return 'WBS|' + chuanHoaKeyChuyenViecTon_(projectCode) + '|' + chuanHoaKeyChuyenViecTon_(wbsCode) + '|' + chuanHoaKeyChuyenViecTon_(taskName);
+}
+
+function chuanHoaKeyChuyenViecTon_(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function taoMarkerCongViecTonTheoKey_(tenSheetNguon, item) {
+  return '__AUTO_CONG_VIEC_TON__|tu=' + tenSheetNguon + '|dong=' + item.soDongNguon + '|key=' + item.key;
+}
+
+function tachKeyTuMarkerCongViecTon_(marker) {
+  const match = String(marker || '').match(/\|key=(.+)$/);
+  return match ? match[1] : '';
+}
+
+function demSoDuAnTrongDanhSachChuyen_(dsDongCanChuyen) {
+  return (dsDongCanChuyen || []).filter(function(item) {
+    return item && item.loai === 'PROJECT';
+  }).length;
+}
+
+function demSoViecTonTrongDanhSachChuyen_(dsDongCanChuyen) {
+  return (dsDongCanChuyen || []).filter(function(item) {
+    return item && item.laViecTon === true;
+  }).length;
+}
+
+function demSoDongDuAnTruocDong_(sheet, soDongCanDem) {
+  const dongBatDau = layDongBatDauQuetNhomDongBo_(sheet);
+  if (soDongCanDem <= dongBatDau) {
+    return 0;
+  }
+
+  const soDong = soDongCanDem - dongBatDau;
+  const values = sheet.getRange(dongBatDau, 1, soDong, 2).getDisplayValues();
+  let dem = 0;
+
+  values.forEach(function(row) {
+    if (laDongTieuDeNhomDongBo_(row[0], row[1])) {
+      dem++;
+    }
+  });
+
+  return dem;
+}
+
+function doiSoSangLaMaDongBo_(num) {
+  const map = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I']
+  ];
+  let n = Number(num || 0);
+  let ketQua = '';
+
+  map.forEach(function(item) {
+    while (n >= item[0]) {
+      ketQua += item[1];
+      n -= item[0];
+    }
+  });
+
+  return ketQua;
 }
 
 function dongBoMotNhomSangThangSau_(sheetNguon, sheetDich, maNhom, dsCongViecTonCoSan, config, tapTrangThaiCongViecTon) {
@@ -414,7 +729,7 @@ function laDongTieuDeNhomDongBo_(giaTriA, giaTriB) {
   const a = String(giaTriA || '').trim();
   const b = String(giaTriB || '').trim();
 
-  return DS_MA_NHOM_LA_MA_MAC_DINH_.indexOf(a) !== -1 && b !== '';
+  return /^[IVXLCDM]+$/i.test(a) && b !== '';
 }
 
 function laDongTongDongBo_(giaTriA) {
@@ -1403,6 +1718,3 @@ function dinhDangNgayGioLog_(ngay) {
     'dd/MM/yyyy HH:mm:ss'
   );
 }
-
-
-
