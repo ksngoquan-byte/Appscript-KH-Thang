@@ -1,4 +1,4 @@
-﻿function apDungDropdown_(ss, config, dsSheetThang) {
+function apDungDropdown_(ss, config, dsSheetThang) {
   try {
     if (!ss) {
       throw new Error('Thiếu bảng tính đầu vào.');
@@ -211,8 +211,7 @@ function apDungDropdownCapCongViec_(ss, config, dsSheetThang) {
       throw new Error('Danh sách sheet tháng không hợp lệ.');
     }
 
-    const system = laySystemConfig_(config);
-    const dongBatDau = Number(system.first_data_row || 6);
+    const dongBatDau = layDongBatDauDropdownCapCongViec_();
     const tenSheetNguon = CAU_HINH_UNG_DUNG.TEN_SHEET.DATA_2 || 'Data (2)';
     const sheetNguon = ss.getSheetByName(tenSheetNguon);
 
@@ -220,7 +219,8 @@ function apDungDropdownCapCongViec_(ss, config, dsSheetThang) {
       throw new Error('Không tìm thấy sheet nguồn dropdown cấp công việc: ' + tenSheetNguon);
     }
 
-    const sourceRange = sheetNguon.getRange('A2:A6');
+    const soDongNguon = Math.max(sheetNguon.getLastRow() - 1, 5);
+    const sourceRange = sheetNguon.getRange(2, 1, soDongNguon, 1);
     const rule = SpreadsheetApp.newDataValidation()
       .requireValueInRange(sourceRange, true)
       .setAllowInvalid(true)
@@ -242,8 +242,10 @@ function apDungDropdownCapCongViec_(ss, config, dsSheetThang) {
     });
 
     Logger.log(
-      'Đã áp dropdown cấp công việc | source=%s!A2:A6 | soSheet=%s',
+      'Đã áp dropdown cấp công việc | source=%s!A2:A%s | startRow=%s | soSheet=%s',
       tenSheetNguon,
+      soDongNguon + 1,
+      dongBatDau,
       soSheetDaAp
     );
 
@@ -255,4 +257,14 @@ function apDungDropdownCapCongViec_(ss, config, dsSheetThang) {
     Logger.log('Lỗi apDungDropdownCapCongViec_: %s', loi.stack || loi);
     throw loi;
   }
+}
+
+function layDongBatDauDropdownCapCongViec_() {
+  return Number(
+    CAU_HINH_UNG_DUNG &&
+    CAU_HINH_UNG_DUNG.KIEM_TRA_CAU_TRUC &&
+    CAU_HINH_UNG_DUNG.KIEM_TRA_CAU_TRUC.DONG_BAT_DAU_DU_LIEU
+      ? CAU_HINH_UNG_DUNG.KIEM_TRA_CAU_TRUC.DONG_BAT_DAU_DU_LIEU
+      : 5
+  );
 }
