@@ -4,6 +4,7 @@
  * Lưu ý: không tự ý đổi tên hàm public nếu chưa cập nhật menu/onEdit.
  */
 function onEdit(e) {
+  xuLyOnEditCotAThang_(e);
   khTuanWbs_onEdit(e);
 }
 
@@ -181,4 +182,3 @@ function khTuanWbs_getPreviousControlValue_(sheetTuan, a1, e) {
 
   return String(sheetTuan.getRange(a1).getDisplayValue() || '').trim();
 }
-
