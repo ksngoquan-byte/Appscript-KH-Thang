@@ -1,4 +1,4 @@
-﻿/**
+/**
  * KH tuần WBS - Đọc kế hoạch tháng
  * Tách từ: 20. KH tuan WBS.js
  * Lưu ý: không tự ý đổi tên hàm public nếu chưa cập nhật menu/onEdit.
@@ -6,6 +6,7 @@
 function khTuanWbs_buildRowsFromMonthSheet_(monthSheet, sourceSheetName, weekName) {
   const config = KH_TUAN_WBS_CONFIG;
   const startRow = config.START_ROW;
+  const doneSourceRows = khTuanWbs_buildDoneSourceRowsBeforeWeek_(sourceSheetName, weekName);
   const lastRow = khTuanWbs_getLastRowByColumns_(monthSheet, startRow, [
     config.MONTH_COL.WBS,
     config.MONTH_COL.NOI_DUNG
@@ -70,6 +71,10 @@ function khTuanWbs_buildRowsFromMonthSheet_(monthSheet, sourceSheetName, weekNam
     }
 
     if (khTuanWbs_isNumericWbs_(wbs)) {
+      if (doneSourceRows[String(sourceRow)]) {
+        return;
+      }
+
       outputRow[config.COL.CV_THANG - 1] = noiDung;
       outputRow[config.COL.CHU_TRI - 1] = row[config.MONTH_COL.CHU_TRI - 1] || '';
       outputRow[config.COL.PHE_DUYET - 1] = row[config.MONTH_COL.PHE_DUYET - 1] || '';
@@ -85,3 +90,38 @@ function khTuanWbs_buildRowsFromMonthSheet_(monthSheet, sourceSheetName, weekNam
   return result;
 }
 
+function khTuanWbs_buildDoneSourceRowsBeforeWeek_(sourceSheetName, weekName) {
+  const weekIndex = khTuanWbs_getWeekIndex_(weekName);
+  const doneSourceRows = {};
+
+  if (weekIndex <= 1) {
+    return doneSourceRows;
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dataSheet = ss.getSheetByName(KH_TUAN_WBS_CONFIG.SHEET_DATA);
+
+  if (!dataSheet) {
+    return doneSourceRows;
+  }
+
+  const config = KH_TUAN_WBS_CONFIG;
+  const col = config.COL;
+
+  khTuanWbs_readDataRows_(dataSheet).forEach(function(item) {
+    if (item.sourceSheet !== sourceSheetName) return;
+
+    const itemWeekIndex = khTuanWbs_getWeekIndex_(item.weekName);
+    if (itemWeekIndex < 1 || itemWeekIndex >= weekIndex) return;
+
+    const row = khTuanWbs_normalizeRowLength_(item.values);
+    const sourceRow = String(row[col.SOURCE_ROW - 1] || '').trim();
+
+    if (!sourceRow) return;
+    if (!khTuanWbs_isDoneStatus_(row[col.DANH_GIA - 1])) return;
+
+    doneSourceRows[sourceRow] = true;
+  });
+
+  return doneSourceRows;
+}
