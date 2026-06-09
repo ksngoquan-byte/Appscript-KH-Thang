@@ -1,5 +1,1 @@
-.clasprc.json
-.clasp.json
-node_modules/
-.env
-.DS_Store
+.npm-cache/

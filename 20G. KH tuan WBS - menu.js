@@ -26,12 +26,12 @@ function khTuanWbs_addMenu_() {
     menu.addSubMenu(
       ui.createMenu('2. Vận hành KH tuần')
         .addItem('2.1. Nạp / cập nhật KH tuần WBS', 'napKhTuanWbsTuSheetThang')
-        .addItem('2.2. Cập nhật kết quả tuần về KH tháng', 'khTuanWbs_pushWeekResultToMonth')
+        .addItem('2.2. Cập nhật KH tháng theo dữ liệu tuần', 'khTuanWbs_pushMonthResultFromWeekData')
     );
   } else {
     menu
       .addItem('1. Nạp / cập nhật KH tuần WBS', 'napKhTuanWbsTuSheetThang')
-      .addItem('2. Cập nhật kết quả tuần về KH tháng', 'khTuanWbs_pushWeekResultToMonth');
+      .addItem('2. Cập nhật KH tháng theo dữ liệu tuần', 'khTuanWbs_pushMonthResultFromWeekData');
   }
 
   menu.addToUi();

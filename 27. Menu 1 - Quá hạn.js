@@ -16,12 +16,14 @@ var MENU_1_OVERDUE_FIXED_COLUMNS_ = {
   plannedBudget: 6,        // G
   owner: 7,                // H
   assignees: 8,            // I
-  actualDate: 10,          // K
-  actualBudget: 11,        // L
-  percentComplete: 12,     // M
-  evaluation: 13,          // N
-  rootCauseAction: 14,     // O
-  managementDirection: 15  // P
+  approver: 9,             // J
+  note: 10,                // K - Đề xuất / Ghi chú
+  actualDate: 11,          // L
+  actualBudget: 12,        // M
+  percentComplete: 13,     // N
+  evaluation: 14,          // O
+  rootCauseAction: 15,     // P
+  managementDirection: 16  // Q
 };
 
 function getMenu1OverdueReport() {

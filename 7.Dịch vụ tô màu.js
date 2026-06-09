@@ -36,12 +36,12 @@
 
 function toMauSheetThang_(sheet) {
   const dongCuoi = sheet.getLastRow();
-  const cotCuoi = Math.min(sheet.getLastColumn(), 16); // A:P
+  const cotCuoi = Math.min(sheet.getLastColumn(), 17); // A:Q
 
   const COT_KE_HOACH_BD = 1;   // A
-  const COT_KE_HOACH_KT = 10;  // J
-  const COT_DANH_GIA_BD = 11;  // K
-  const COT_DANH_GIA_KT = 16;  // P
+  const COT_KE_HOACH_KT = 11;  // K
+  const COT_DANH_GIA_BD = 12;  // L
+  const COT_DANH_GIA_KT = 17;  // Q
 
   const MAU_KE_HOACH = '#D9EAF7';   // xanh nhạt
   const MAU_DANH_GIA = '#FFF2CC';   // vàng nhạt

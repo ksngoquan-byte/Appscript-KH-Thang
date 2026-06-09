@@ -54,9 +54,9 @@
 
 var FORMAT_RULE_FIELDS_ = [
   { fieldName: 'thoi_han', targetColumn: 'F', formatType: 'DATE', roundTo: 0 },
-  { fieldName: 'ngay_hoan_thanh', targetColumn: 'K', formatType: 'DATE', roundTo: 0 },
+  { fieldName: 'ngay_hoan_thanh', targetColumn: 'L', formatType: 'DATE', roundTo: 0 },
   { fieldName: 'ngan_sach_ke_hoach', targetColumn: 'G', formatType: 'MONEY', roundTo: 1000 },
-  { fieldName: 'ngan_sach_thuc_hien', targetColumn: 'L', formatType: 'MONEY', roundTo: 1000 }
+  { fieldName: 'ngan_sach_thuc_hien', targetColumn: 'M', formatType: 'MONEY', roundTo: 1000 }
 ];
 
 function apDungMotRuleDinhDang_(config, ruleConfig, ruleMeta, dsSheetThang) {

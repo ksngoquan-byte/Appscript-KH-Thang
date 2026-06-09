@@ -224,3 +224,104 @@ function khTuanWbs_formatMonthLabel_(year, month) {
   return 'T' + String(m).padStart(2, '0') + '.' + y;
 }
 
+/**
+ * Đánh giá "Đạt" là trạng thái đóng việc.
+ * Dùng so khớp tuyệt đối sau chuẩn hóa để không nhầm với "Không đạt".
+ */
+function khTuanWbs_isDoneStatus_(value) {
+  const text = khTuanWbs_normalizeText_(value)
+    .replace(/[✅✔✓☑]/g, '')
+    .trim();
+
+  return text === 'đạt' || text === 'dat';
+}
+
+function khTuanWbs_isUpdateMonthFlag_(value) {
+  const text = khTuanWbs_normalizeText_(value);
+  return text === 'có' || text === 'co';
+}
+
+function khTuanWbs_getWeekNameForDate_(year, month, dateValue) {
+  let target = dateValue instanceof Date ? new Date(dateValue) : new Date(dateValue);
+  if (isNaN(target.getTime())) return '';
+
+  // Chủ nhật được tính vào tuần làm việc liền trước.
+  if (target.getDay() === 0) {
+    target = new Date(target.getFullYear(), target.getMonth(), target.getDate() - 1);
+  }
+
+  const targetStart = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  const weeks = khTuanWbs_buildWorkingWeeks_(year, month);
+
+  for (let i = 0; i < weeks.length; i++) {
+    const start = weeks[i].startDate;
+    const end = weeks[i].endDate;
+    const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+    const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999).getTime();
+
+    if (targetStart >= startTime && targetStart <= endTime) {
+      return weeks[i].name;
+    }
+  }
+
+  return '';
+}
+
+function khTuanWbs_getMonthPushScope_(sourceSheetName, referenceDate) {
+  const info = khTuanWbs_getMonthInfoFromSourceSheet_(sourceSheetName);
+  if (!info) {
+    return {
+      ok: false,
+      mode: 'INVALID_SOURCE_SHEET',
+      maxWeekIndex: 0,
+      weekNames: [],
+      message: 'Không xác định được tháng/năm từ sheet nguồn: ' + sourceSheetName
+    };
+  }
+
+  const today = referenceDate instanceof Date ? referenceDate : new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
+  const selectedMonthIndex = Number(info.nam) * 12 + Number(info.thang);
+  const currentMonthIndex = currentYear * 12 + currentMonth;
+  const weeks = khTuanWbs_buildWorkingWeeks_(info.nam, info.thang);
+  const weekNames = weeks.map(function(item) { return item.name; });
+
+  if (selectedMonthIndex > currentMonthIndex) {
+    return {
+      ok: false,
+      mode: 'FUTURE_MONTH_BLOCKED',
+      maxWeekIndex: 0,
+      weekNames: [],
+      message: 'Sheet đang chọn là tháng tương lai. Dừng cập nhật để tránh ghi sớm: ' + sourceSheetName
+    };
+  }
+
+  if (selectedMonthIndex < currentMonthIndex) {
+    return {
+      ok: true,
+      mode: 'PAST_MONTH_CLOSE',
+      maxWeekIndex: weeks.length,
+      weekNames: weekNames,
+      message: 'Cập nhật/chốt hồi cứu toàn bộ tháng cũ: ' + sourceSheetName
+    };
+  }
+
+  const currentWeekName = khTuanWbs_getWeekNameForDate_(info.nam, info.thang, today);
+  const currentWeekIndex = khTuanWbs_getWeekIndex_(currentWeekName);
+
+  return {
+    ok: currentWeekIndex > 0,
+    mode: 'CURRENT_MONTH',
+    maxWeekIndex: currentWeekIndex,
+    weekNames: weekNames.slice(0, currentWeekIndex),
+    message: currentWeekIndex > 0
+      ? 'Cập nhật tháng hiện tại từ Tuần 1 đến ' + currentWeekName + ': ' + sourceSheetName
+      : 'Không xác định được tuần hiện tại trong tháng đang chọn: ' + sourceSheetName
+  };
+}
+
+function khTuanWbs_isWeekInScope_(weekName, maxWeekIndex) {
+  const weekIndex = khTuanWbs_getWeekIndex_(weekName);
+  return weekIndex >= 1 && weekIndex <= Number(maxWeekIndex || 0);
+}

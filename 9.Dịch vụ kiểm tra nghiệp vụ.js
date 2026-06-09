@@ -154,7 +154,7 @@ function chayKiemTraNghiepVu_Buoc4_2() {
     let tongLoi = 0;
 
     Logger.log(
-      'Bắt đầu kiểm tra nghiệp vụ Bước 4.2 | format F, K, G, L | số sheet: %s',
+      'Bắt đầu kiểm tra nghiệp vụ Bước 4.2 | format F, L, G, M | số sheet: %s',
       danhSachSheetThang.length
     );
 
@@ -162,11 +162,11 @@ function chayKiemTraNghiepVu_Buoc4_2() {
       Logger.log('%s. Sheet | %s', index + 1, sheet.getName());
 
       const ketQuaF = kiemTraFormatNgayTheoField(sheet, config, 'thoi_han', 'F');
-      const ketQuaK = kiemTraFormatNgayTheoField(sheet, config, 'ngay_hoan_thanh', 'K');
+      const ketQuaLNgay = kiemTraFormatNgayTheoField(sheet, config, 'ngay_hoan_thanh', 'L');
       const ketQuaG = kiemTraFormatTienTheoField(sheet, config, 'ngan_sach_ke_hoach', 'G');
-      const ketQuaL = kiemTraFormatTienTheoField(sheet, config, 'ngan_sach_thuc_hien', 'L');
+      const ketQuaM = kiemTraFormatTienTheoField(sheet, config, 'ngan_sach_thuc_hien', 'M');
 
-      [ketQuaF, ketQuaK, ketQuaG, ketQuaL].forEach(function(ketQua) {
+      [ketQuaF, ketQuaLNgay, ketQuaG, ketQuaM].forEach(function(ketQua) {
         if (ketQua.hopLe) {
           Logger.log('   - OK %s | %s', ketQua.cot, ketQua.thongTin);
         } else {
@@ -199,9 +199,9 @@ function laHangTieuDeNhomTheoCotA(giaTriCotA) {
 function kiemTraMauMotHang(sheet, soDong, giaTriCotA) {
   const cauHinhMau = CAU_HINH_UNG_DUNG.KIEM_TRA_MAU;
 
-  const mauNenTrai = sheet.getRange(soDong, 1, 1, 10).getBackgrounds()[0];
-  const mauNenPhai = sheet.getRange(soDong, 11, 1, 6).getBackgrounds()[0];
-  const mauChuCaHang = sheet.getRange(soDong, 1, 1, 16).getFontColors()[0];
+  const mauNenTrai = sheet.getRange(soDong, 1, 1, 11).getBackgrounds()[0];
+  const mauNenPhai = sheet.getRange(soDong, 12, 1, 6).getBackgrounds()[0];
+  const mauChuCaHang = sheet.getRange(soDong, 1, 1, 17).getFontColors()[0];
 
   const ketQua = {
     hopLe: true,
@@ -221,12 +221,12 @@ function kiemTraMauMotHang(sheet, soDong, giaTriCotA) {
 
     if (!tatCaNenDung) {
       ketQua.hopLe = false;
-      ketQua.danhSachLoi.push('Hàng ∑ chưa tô đúng màu nền xanh đậm toàn hàng A:P');
+      ketQua.danhSachLoi.push('Hàng ∑ chưa tô đúng màu nền xanh đậm toàn hàng A:Q');
     }
 
     if (!tatCaChuDung) {
       ketQua.hopLe = false;
-      ketQua.danhSachLoi.push('Hàng ∑ chưa đúng màu chữ trắng toàn hàng A:P');
+      ketQua.danhSachLoi.push('Hàng ∑ chưa đúng màu chữ trắng toàn hàng A:Q');
     }
 
     return ketQua;
@@ -246,12 +246,12 @@ function kiemTraMauMotHang(sheet, soDong, giaTriCotA) {
 
   if (!khoiTraiDung) {
     ketQua.hopLe = false;
-    ketQua.danhSachLoi.push('Hàng con chưa đúng màu nền khối A:J');
+    ketQua.danhSachLoi.push('Hàng con chưa đúng màu nền khối A:K');
   }
 
   if (!khoiPhaiDung) {
     ketQua.hopLe = false;
-    ketQua.danhSachLoi.push('Hàng con chưa đúng màu nền khối K:P');
+    ketQua.danhSachLoi.push('Hàng con chưa đúng màu nền khối L:Q');
   }
 
   return ketQua;
@@ -376,15 +376,15 @@ function debugMauDongHienTai(tenSheet, soDong) {
       throw new Error('Không tìm thấy sheet: ' + tenSheet);
     }
 
-    const mauNenTrai = sheet.getRange(soDong, 1, 1, 10).getBackgrounds()[0];
-    const mauNenPhai = sheet.getRange(soDong, 11, 1, 6).getBackgrounds()[0];
-    const mauChuCaHang = sheet.getRange(soDong, 1, 1, 16).getFontColors()[0];
+    const mauNenTrai = sheet.getRange(soDong, 1, 1, 11).getBackgrounds()[0];
+    const mauNenPhai = sheet.getRange(soDong, 12, 1, 6).getBackgrounds()[0];
+    const mauChuCaHang = sheet.getRange(soDong, 1, 1, 17).getFontColors()[0];
     const giaTriCotA = sheet.getRange(soDong, 1).getDisplayValue();
 
     Logger.log('Sheet: %s | Dòng: %s | Cột A: [%s]', tenSheet, soDong, giaTriCotA);
-    Logger.log('Nen trai A:J = %s', JSON.stringify(mauNenTrai));
-    Logger.log('Nen phai K:P = %s', JSON.stringify(mauNenPhai));
-    Logger.log('Chu A:P = %s', JSON.stringify(mauChuCaHang));
+    Logger.log('Nen trai A:K = %s', JSON.stringify(mauNenTrai));
+    Logger.log('Nen phai L:Q = %s', JSON.stringify(mauNenPhai));
+    Logger.log('Chu A:Q = %s', JSON.stringify(mauChuCaHang));
   } catch (error) {
     Logger.log('Lỗi debugMauDongHienTai: %s', error.stack || error);
     throw error;
