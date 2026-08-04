@@ -1,4 +1,4 @@
-﻿// Moved out of 2.Chính.js to reduce file size while keeping public entrypoints unchanged.
+// Moved out of 2.Chính.js to reduce file size while keeping public entrypoints unchanged.
 
 function laSheetThangDongBo_(sheet, config) {
   const system = laySystemConfig_(config);
@@ -28,9 +28,6 @@ function taoRegexSheetThangTheoMa_(monthSheetCode) {
 }
 
 const DONG_BAT_DAU_DONG_BO_CONG_VIEC_TON_ = 6;
-const SO_COT_FORM_BAO_CAO_THANG_ = 17; // A:Q
-const COT_DANH_GIA_CONG_VIEC_TON_ = 15; // O - Đánh giá
-const COT_Y_KIEN_CHI_DAO_ = 17; // Q
 const KHOA_BATCH_DONG_BO_CONG_VIEC_TON_TIMEOUT_MS_ = 30000;
 const DEVELOPER_METADATA_KEY_CONG_VIEC_TON_ = 'AUTO_CONG_VIEC_TON_MARKER';
 const DS_MA_NHOM_LA_MA_MAC_DINH_ = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
@@ -159,14 +156,50 @@ function xacNhanDongBoCongViecTonThuCong_(sheetNguon, sheetDich) {
 }
 
 function dongBoToanBoCongViecTonGiuaHaiSheet_(sheetNguon, sheetDich, config, tapTrangThaiCongViecTon) {
-  const banDoCongViecTon = layBanDoCongViecTonTheoNhom_(sheetNguon, config, tapTrangThaiCongViecTon);
-  const dsNhomCoViecTon = Object.keys(banDoCongViecTon);
-  const dsNhomCoDongAuto = layDanhSachNhomCoDongAuto_(sheetDich);
-  const dsMaNhom = hopNhatDanhSachMaNhomDongBo_(dsNhomCoViecTon, dsNhomCoDongAuto);
+  const banDoNguon = layBanDoCongViecTonTheoTenDuAn_(sheetNguon, config, tapTrangThaiCongViecTon);
+  const dsKeyNguon = Object.keys(banDoNguon);
+  let banDoDich = layBanDoDuAnLaMaTheoTen_(sheetDich, config);
+  let dsThieuDuAn = dsKeyNguon.filter(function(key) {
+    return (banDoNguon[key] || []).length > 0 && !banDoDich[key];
+  });
+
+  if (dsThieuDuAn.length) {
+    const dsDuAnDaTao = khoiTaoCacDuAnThieuTheoSheetNguon_(
+      sheetNguon,
+      sheetDich,
+      config
+    );
+
+    Logger.log(
+      'Đã khởi tạo nhóm dự án còn thiếu trước khi đồng bộ | nguồn=%s | đích=%s | số nhóm=%s | nhóm=%s',
+      sheetNguon.getName(),
+      sheetDich.getName(),
+      dsDuAnDaTao.length,
+      dsDuAnDaTao.map(function(item) { return item.tenDuAn; }).join(' | ')
+    );
+
+    banDoDich = layBanDoDuAnLaMaTheoTen_(sheetDich, config);
+    dsThieuDuAn = dsKeyNguon.filter(function(key) {
+      return (banDoNguon[key] || []).length > 0 && !banDoDich[key];
+    });
+  }
+
+  if (dsThieuDuAn.length) {
+    throw new Error(
+      'Không thể đồng bộ việc tồn vì sheet tháng sau vẫn thiếu dòng dự án/nhóm hợp lệ tại cột A:B sau bước khởi tạo:\n- ' +
+      dsThieuDuAn.map(function(key) {
+        return banDoNguon[key][0].tenDuAnNguon;
+      }).join('\n- ')
+    );
+  }
+
+  const dsKeyAuto = layDanhSachKeyDuAnCoDongAuto_(sheetDich, config);
+  const dsKeyDongBo = hopNhatKeyDuAnDongBoTheoThuTuDich_(dsKeyNguon, dsKeyAuto, banDoDich);
+
   const ketQuaTongHop = {
     sheetNguon: sheetNguon.getName(),
     sheetDich: sheetDich.getName(),
-    tongNhom: dsMaNhom.length,
+    tongNhom: dsKeyDongBo.length,
     tongViecTon: 0,
     tongDongGhi: 0,
     tongDongXoa: 0,
@@ -175,24 +208,337 @@ function dongBoToanBoCongViecTonGiuaHaiSheet_(sheetNguon, sheetDich, config, tap
     chiTietNhom: []
   };
 
-  dsMaNhom.forEach(function(maNhom) {
-    const ketQuaNhom = dongBoMotNhomSangThangSau_(
-      sheetNguon,
-      sheetDich,
-      maNhom,
-      banDoCongViecTon[maNhom] || [],
-      config,
-      tapTrangThaiCongViecTon
-    );
-    ketQuaTongHop.tongViecTon += ketQuaNhom.tongViecTon;
-    ketQuaTongHop.tongDongGhi += ketQuaNhom.soDongGhi;
-    ketQuaTongHop.tongDongXoa += ketQuaNhom.soDongXoa;
-    ketQuaTongHop.tongDongChenMoi += ketQuaNhom.soDongChenMoi;
-    ketQuaTongHop.tongBoQua += ketQuaNhom.soDongBoQua;
-    ketQuaTongHop.chiTietNhom.push(ketQuaNhom);
-  });
+  dsKeyDongBo
+    .sort(function(a, b) {
+      const dongA = banDoDich[a] ? banDoDich[a].dongChenMoi : 0;
+      const dongB = banDoDich[b] ? banDoDich[b].dongChenMoi : 0;
+      return dongB - dongA;
+    })
+    .forEach(function(keyDuAn) {
+      const ketQuaDuAn = dongBoMotDuAnSangThangSau_(
+        sheetNguon,
+        sheetDich,
+        keyDuAn,
+        banDoNguon[keyDuAn] || [],
+        banDoDich[keyDuAn]
+      );
+      ketQuaTongHop.tongViecTon += ketQuaDuAn.tongViecTon;
+      ketQuaTongHop.tongDongGhi += ketQuaDuAn.soDongGhi;
+      ketQuaTongHop.tongDongXoa += ketQuaDuAn.soDongXoa;
+      ketQuaTongHop.tongDongChenMoi += ketQuaDuAn.soDongChenMoi;
+      ketQuaTongHop.tongBoQua += ketQuaDuAn.soDongBoQua;
+      ketQuaTongHop.chiTietNhom.push(ketQuaDuAn);
+    });
 
   return ketQuaTongHop;
+}
+
+function khoiTaoCacDuAnThieuTheoSheetNguon_(sheetNguon, sheetDich, config) {
+  const dsDuAnNguon = layDanhSachDuAnNguonTheoThuTu_(sheetNguon, config);
+  if (!dsDuAnNguon.length) {
+    throw new Error('Không tìm thấy dòng dự án/nhóm hợp lệ trong sheet nguồn ' + sheetNguon.getName());
+  }
+
+  const thongTinThangDich = layThongTinThangTuTenSheet_(sheetDich.getName());
+  if (!thongTinThangDich) {
+    throw new Error('Không đọc được tháng/năm từ tên sheet đích ' + sheetDich.getName());
+  }
+
+  let dongTong = timDongTongTheoCotA_(sheetDich);
+  if (!dongTong) {
+    throw new Error('Không tìm thấy dòng tổng ∑ trong sheet đích ' + sheetDich.getName());
+  }
+
+  kiemTraXungDotMaLaMaDuAnDich_(sheetDich, dsDuAnNguon, config);
+
+  const prefixMaCv = taoPrefixMaCvTheoSheet_(thongTinThangDich);
+  const notesA = dongTong > 1
+    ? sheetDich.getRange(1, 1, dongTong - 1, 1).getNotes()
+    : [];
+  const trangThaiId = taoTrangThaiMaCv_(notesA, prefixMaCv);
+  const dongMauCongViecChung = timDongMauCongViecChungTrongSheet_(sheetNguon, config);
+  const ketQua = [];
+
+  dsDuAnNguon.forEach(function(duAnNguon, indexNguon) {
+    let banDoDich = layBanDoDuAnLaMaTheoTen_(sheetDich, config);
+    if (banDoDich[duAnNguon.key]) {
+      return;
+    }
+
+    dongTong = timDongTongTheoCotA_(sheetDich);
+    const dongChenTheoThuTu = timDongChenDuAnTheoThuTuNguon_(
+      sheetDich,
+      dsDuAnNguon,
+      indexNguon,
+      banDoDich,
+      dongTong
+    );
+
+    let dongTieuDe = timDongPlaceholderLaMaCoTheTaiSuDung_(
+      sheetDich,
+      duAnNguon.maLaMa,
+      dongChenTheoThuTu
+    );
+
+    if (!dongTieuDe) {
+      sheetDich.insertRowsBefore(dongChenTheoThuTu, 2);
+      dongTieuDe = dongChenTheoThuTu;
+    } else {
+      const dongCon = dongTieuDe + 1;
+      if (!laDongTrongHoanToanDongBo_(sheetDich, dongCon)) {
+        sheetDich.insertRowsAfter(dongTieuDe, 1);
+      }
+    }
+
+    const dongMauCongViec = duAnNguon.dongMauCongViec || dongMauCongViecChung;
+    if (!dongMauCongViec) {
+      throw new Error(
+        'Không tìm thấy dòng công việc mẫu để tạo vùng dữ liệu cho dự án ' +
+        duAnNguon.tenDuAn
+      );
+    }
+
+    saoChepCauTrucDuAnNguonSangDich_(
+      sheetNguon,
+      sheetDich,
+      duAnNguon,
+      dongTieuDe,
+      dongMauCongViec
+    );
+
+    const noteNguon = phanTichNoteCongViec_(
+      sheetNguon.getRange(duAnNguon.dongTieuDe, 1).getNote()
+    );
+    const maCvMoi = taoMaCvMoi_(prefixMaCv, trangThaiId);
+    sheetDich.getRange(dongTieuDe, 1).setNote(
+      taoNoteCongViec_(maCvMoi, 0, '', noteNguon.ma_cv || '')
+    );
+
+    ketQua.push({
+      maLaMa: duAnNguon.maLaMa,
+      tenDuAn: duAnNguon.tenDuAn,
+      dongTieuDe: dongTieuDe,
+      maCv: maCvMoi,
+      chuyenTu: noteNguon.ma_cv || ''
+    });
+  });
+
+  return ketQua;
+}
+
+function layDanhSachDuAnNguonTheoThuTu_(sheet, config) {
+  const dongCuoi = sheet.getLastRow();
+  const cotCuoi = Math.max(sheet.getLastColumn(), 3);
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
+  if (dongCuoi < dongBatDauQuet) return [];
+
+  const values = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
+  const ketQua = [];
+  const keyDaCo = {};
+  const maLaMaDaCo = {};
+  let duAnHienTai = null;
+
+  for (let r = dongBatDauQuet - 1; r < values.length; r++) {
+    const soDong = r + 1;
+    const giaTriA = String(values[r][0] || '').trim();
+    const giaTriB = String(values[r][1] || '').trim();
+
+    if (laDongTongDongBo_(giaTriA)) {
+      break;
+    }
+
+    if (laDongDuAnLaMaDongBo_(giaTriA, giaTriB)) {
+      const key = chuanHoaTenDuAnDongBo_(giaTriB);
+      const maLaMa = giaTriA.toUpperCase();
+
+      if (keyDaCo[key]) {
+        throw new Error(
+          'Tên dự án/nhóm bị trùng trong sheet nguồn ' +
+          sheet.getName() + ': ' + giaTriB
+        );
+      }
+      if (maLaMaDaCo[maLaMa]) {
+        throw new Error(
+          'STT La Mã dự án/nhóm bị trùng trong sheet nguồn ' +
+          sheet.getName() + ': ' + maLaMa
+        );
+      }
+
+      duAnHienTai = {
+        key: key,
+        maLaMa: maLaMa,
+        tenDuAn: giaTriB,
+        dongTieuDe: soDong,
+        dongMauCongViec: 0
+      };
+      keyDaCo[key] = true;
+      maLaMaDaCo[maLaMa] = true;
+      ketQua.push(duAnHienTai);
+      continue;
+    }
+
+    if (
+      duAnHienTai &&
+      !duAnHienTai.dongMauCongViec &&
+      laMaCongViecPhanCapDongBo_(giaTriA)
+    ) {
+      duAnHienTai.dongMauCongViec = soDong;
+    }
+  }
+
+  return ketQua;
+}
+
+function kiemTraXungDotMaLaMaDuAnDich_(sheetDich, dsDuAnNguon, config) {
+  const dongCuoi = sheetDich.getLastRow();
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheetDich);
+  if (dongCuoi < dongBatDauQuet) return;
+
+  const values = sheetDich.getRange(
+    dongBatDauQuet,
+    1,
+    dongCuoi - dongBatDauQuet + 1,
+    2
+  ).getDisplayValues();
+  const keyNguonTheoMaLaMa = {};
+
+  dsDuAnNguon.forEach(function(item) {
+    keyNguonTheoMaLaMa[item.maLaMa] = item.key;
+  });
+
+  values.forEach(function(row, index) {
+    const giaTriA = String(row[0] || '').trim().toUpperCase();
+    const giaTriB = String(row[1] || '').trim();
+    if (!giaTriA || !giaTriB || !laMaLaMaDongBo_(giaTriA)) return;
+
+    const keyNguon = keyNguonTheoMaLaMa[giaTriA] || '';
+    const keyDich = chuanHoaTenDuAnDongBo_(giaTriB);
+
+    if (keyNguon && keyNguon !== keyDich) {
+      throw new Error(
+        'Xung đột STT La Mã tại sheet ' + sheetDich.getName() +
+        ', dòng ' + (dongBatDauQuet + index) +
+        ': ' + giaTriA + ' đang gắn với "' + giaTriB + '".'
+      );
+    }
+  });
+}
+
+function timDongChenDuAnTheoThuTuNguon_(sheetDich, dsDuAnNguon, indexNguon, banDoDich, dongTong) {
+  for (let i = indexNguon + 1; i < dsDuAnNguon.length; i++) {
+    const duAnSau = banDoDich[dsDuAnNguon[i].key];
+    if (duAnSau && duAnSau.dongTieuDe > 0) {
+      return duAnSau.dongTieuDe;
+    }
+  }
+  return dongTong;
+}
+
+function timDongPlaceholderLaMaCoTheTaiSuDung_(sheet, maLaMa, dongGioiHan) {
+  const dongBatDau = Math.max(layDongBatDauQuetNhomDongBo_(sheet), 1);
+  const dongKetThuc = Math.max(Number(dongGioiHan || 0) - 1, dongBatDau - 1);
+  if (dongKetThuc < dongBatDau) return 0;
+
+  const soDong = dongKetThuc - dongBatDau + 1;
+  const values = sheet.getRange(dongBatDau, 1, soDong, 16).getDisplayValues();
+
+  for (let i = 0; i < values.length; i++) {
+    const giaTriA = String(values[i][0] || '').trim().toUpperCase();
+    const cacCotConLaiTrong = values[i].slice(1).every(function(value) {
+      return String(value || '').trim() === '';
+    });
+
+    if (giaTriA === maLaMa && cacCotConLaiTrong) {
+      const soDongHienTai = dongBatDau + i;
+      if (laDongTrongHoanToanDongBo_(sheet, soDongHienTai + 1)) {
+        return soDongHienTai;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function laDongTrongHoanToanDongBo_(sheet, soDong) {
+  if (!soDong || soDong > sheet.getMaxRows()) return false;
+  const values = sheet.getRange(soDong, 1, 1, 16).getDisplayValues()[0];
+  return values.every(function(value) {
+    return String(value || '').trim() === '';
+  });
+}
+
+function timDongMauCongViecChungTrongSheet_(sheet, config) {
+  const dongCuoi = sheet.getLastRow();
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
+  if (dongCuoi < dongBatDauQuet) return 0;
+
+  const values = sheet.getRange(
+    dongBatDauQuet,
+    1,
+    dongCuoi - dongBatDauQuet + 1,
+    1
+  ).getDisplayValues();
+
+  for (let i = 0; i < values.length; i++) {
+    if (laMaCongViecPhanCapDongBo_(values[i][0])) {
+      return dongBatDauQuet + i;
+    }
+  }
+
+  return 0;
+}
+
+function saoChepCauTrucDuAnNguonSangDich_(sheetNguon, sheetDich, duAnNguon, dongTieuDeDich, dongMauCongViecNguon) {
+  const rangeTieuDeNguon = sheetNguon.getRange(duAnNguon.dongTieuDe, 1, 1, 16);
+  const rangeTieuDeDich = sheetDich.getRange(dongTieuDeDich, 1, 1, 16);
+  const rangeMauCongViecNguon = sheetNguon.getRange(dongMauCongViecNguon, 1, 1, 16);
+  const rangeMauCongViecDich = sheetDich.getRange(dongTieuDeDich + 1, 1, 1, 16);
+
+  [rangeTieuDeDich, rangeMauCongViecDich].forEach(function(range) {
+    try {
+      range.breakApart();
+    } catch (error) {}
+    range.clearContent();
+    range.clearNote();
+    range.clearFormat();
+    range.clearDataValidations();
+  });
+
+  rangeTieuDeNguon.copyTo(
+    rangeTieuDeDich,
+    SpreadsheetApp.CopyPasteType.PASTE_FORMAT,
+    false
+  );
+  rangeTieuDeNguon.copyTo(
+    rangeTieuDeDich,
+    SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION,
+    false
+  );
+  rangeMauCongViecNguon.copyTo(
+    rangeMauCongViecDich,
+    SpreadsheetApp.CopyPasteType.PASTE_FORMAT,
+    false
+  );
+  rangeMauCongViecNguon.copyTo(
+    rangeMauCongViecDich,
+    SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION,
+    false
+  );
+
+  sheetDich.setRowHeight(
+    dongTieuDeDich,
+    sheetNguon.getRowHeight(duAnNguon.dongTieuDe)
+  );
+  sheetDich.setRowHeight(
+    dongTieuDeDich + 1,
+    sheetNguon.getRowHeight(dongMauCongViecNguon)
+  );
+
+  const valuesTieuDe = new Array(16).fill('');
+  valuesTieuDe[0] = duAnNguon.maLaMa;
+  valuesTieuDe[1] = duAnNguon.tenDuAn;
+  rangeTieuDeDich.setValues([valuesTieuDe]);
+  rangeMauCongViecDich.clearContent().clearNote();
 }
 
 function dongBoMotNhomSangThangSau_(sheetNguon, sheetDich, maNhom, dsCongViecTonCoSan, config, tapTrangThaiCongViecTon) {
@@ -289,7 +635,7 @@ function phanTichDongConTrongNhomDeDongBo_(sheet, thongTinNhom) {
 
 function layBanDoCongViecTonTheoNhom_(sheet, config, tapTrangThaiCongViecTon) {
   const dongCuoi = sheet.getLastRow();
-  const cotCuoi = Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_);
+  const cotCuoi = Math.max(sheet.getLastColumn(), 16);
   if (dongCuoi < 6) return {};
 
   const displayValues = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
@@ -305,7 +651,7 @@ function layBanDoCongViecTonTheoNhom_(sheet, config, tapTrangThaiCongViecTon) {
     const giaTriC = String(displayValues[r][2] || '').trim();
     const giaTriH = String(displayValues[r][7] || '').trim();
     const giaTriI = String(displayValues[r][8] || '').trim();
-    const giaTriN = String(rawValues[r][COT_DANH_GIA_CONG_VIEC_TON_ - 1] || '').trim();
+    const giaTriN = String(rawValues[r][13] || '').trim();
 
     if (laDongTieuDeNhomDongBo_(giaTriA, giaTriB)) {
       maNhomHienTai = giaTriA;
@@ -336,7 +682,7 @@ function layBanDoCongViecTonTheoNhom_(sheet, config, tapTrangThaiCongViecTon) {
 }
 
 function layThongTinCongViecTaiDong_(sheet, soDong) {
-  const range = sheet.getRange(soDong, 1, 1, Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_));
+  const range = sheet.getRange(soDong, 1, 1, Math.max(sheet.getLastColumn(), 16));
   const displayValues = range.getDisplayValues()[0];
   const rawValues = range.getValues()[0];
   const giaTriA = String(displayValues[0] || '').trim();
@@ -351,7 +697,7 @@ function layThongTinCongViecTaiDong_(sheet, soDong) {
     giaTriC: giaTriC,
     giaTriH: String(displayValues[7] || '').trim(),
     giaTriI: String(displayValues[8] || '').trim(),
-    giaTriN: String(rawValues[COT_DANH_GIA_CONG_VIEC_TON_ - 1] || '').trim()
+    giaTriN: String(rawValues[13] || '').trim()
   };
 }
 
@@ -440,7 +786,7 @@ function laMaCongViecPhanCapDongBo_(giaTriA) {
 
 function layThongTinNhomTrongSheet_(sheet, maNhomCanTim) {
   const dongCuoi = sheet.getLastRow();
-  const cotCuoi = Math.max(sheet.getLastColumn(), SO_COT_FORM_BAO_CAO_THANG_);
+  const cotCuoi = Math.max(sheet.getLastColumn(), 16);
   if (dongCuoi < 6) return null;
 
   const values = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
@@ -553,8 +899,8 @@ function chenThemDongTrongCuoiNhom_(sheet, thongTinNhom) {
     sheet.insertRowsBefore(dongChen, 1);
 
     const dongMoi = dongChen;
-    const rangeMoi = sheet.getRange(dongMoi, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
-    const rangeMau = sheet.getRange(dongMau, 1, 1, SO_COT_FORM_BAO_CAO_THANG_);
+    const rangeMoi = sheet.getRange(dongMoi, 1, 1, 16);
+    const rangeMau = sheet.getRange(dongMau, 1, 1, 16);
 
     // Quan trọng: phá merge và xóa format kế thừa của dòng vừa chèn
     rangeMoi.breakApart();
@@ -581,8 +927,8 @@ function chenThemDongTrongCuoiNhom_(sheet, thongTinNhom) {
     sheet.getRange(dongMoi, 1).clearContent().clearNote();
 
     // Chỉ xóa nội dung nhập tay, giữ format/drodpown vừa copy
-    sheet.getRange(dongMoi, 2, 1, SO_COT_FORM_BAO_CAO_THANG_ - 1).clearContent();
-    sheet.getRange(dongMoi, 2, 1, SO_COT_FORM_BAO_CAO_THANG_ - 1).clearNote();
+    sheet.getRange(dongMoi, 2, 1, 15).clearContent();
+    sheet.getRange(dongMoi, 2, 1, 15).clearNote();
 
     Logger.log(
       'Da chen them 1 dong trong dung mau tai sheet=%s | nhom=%s | dong moi=%s | dong mau=%s',
@@ -765,6 +1111,313 @@ function hopNhatDanhSachMaNhomDongBo_(ds1, ds2) {
   return ketQua;
 }
 
+function dongBoMotDuAnSangThangSau_(sheetNguon, sheetDich, keyDuAn, dsCongViecTonCoSan, thongTinDuAnDich) {
+  const dsCongViecTon = Array.isArray(dsCongViecTonCoSan) ? dsCongViecTonCoSan : [];
+  const ketQuaTongHop = {
+    keyDuAn: keyDuAn,
+    tenDuAn: thongTinDuAnDich ? thongTinDuAnDich.tenDuAn : (dsCongViecTon[0] ? dsCongViecTon[0].tenDuAnNguon : ''),
+    sheetNguon: sheetNguon.getName(),
+    sheetDich: sheetDich.getName(),
+    tongViecTon: dsCongViecTon.length,
+    soDongGhi: 0,
+    soDongXoa: 0,
+    soDongChenMoi: 0,
+    soDongBoQua: 0
+  };
+
+  if (!thongTinDuAnDich) {
+    ketQuaTongHop.soDongBoQua = dsCongViecTon.length;
+    return ketQuaTongHop;
+  }
+
+  const dsDongAuto = layDanhSachDongAutoTrongDuAn_(sheetDich, thongTinDuAnDich);
+  lamSachDongAutoTrongDuAn_(sheetDich, dsDongAuto);
+  const dsDongTaiSuDung = layDanhSachDongTrongDauDuAn_(sheetDich, thongTinDuAnDich, dsCongViecTon.length);
+  ketQuaTongHop.soDongXoa = dsDongTaiSuDung.length;
+
+  if (!dsCongViecTon.length) {
+    return ketQuaTongHop;
+  }
+
+  const soDongCanChen = Math.max(dsCongViecTon.length - dsDongTaiSuDung.length, 0);
+  const dsDongDich = dsDongTaiSuDung.slice();
+
+  if (soDongCanChen > 0) {
+    const dongChen = thongTinDuAnDich.dongBatDauDuLieu + dsDongTaiSuDung.length;
+    sheetDich.insertRowsBefore(dongChen, soDongCanChen);
+    for (let i = 0; i < soDongCanChen; i++) {
+      dsDongDich.push(dongChen + i);
+    }
+    ketQuaTongHop.soDongChenMoi = soDongCanChen;
+  }
+
+  dsCongViecTon.forEach(function(item, index) {
+    const dongDich = dsDongDich[index] || 0;
+    if (!dongDich) {
+      ketQuaTongHop.soDongBoQua++;
+      return;
+    }
+
+    dinhDangDongCongViecTonMoi_(sheetDich, dongDich);
+    const marker = taoMarkerCongViecTonTheoDuAn_(sheetNguon.getName(), item.soDongNguon, item.tenDuAnNguon);
+    ghiCongViecTonTheoDuAnVaoDong_(sheetDich, dongDich, item, marker);
+    ketQuaTongHop.soDongGhi++;
+  });
+
+  return ketQuaTongHop;
+}
+
+function layBanDoCongViecTonTheoTenDuAn_(sheet, config, tapTrangThaiCongViecTon) {
+  const dongCuoi = sheet.getLastRow();
+  const cotCuoi = Math.max(sheet.getLastColumn(), 16);
+  if (dongCuoi < 6) return {};
+
+  const displayValues = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
+  const rawValues = sheet.getRange(1, 1, dongCuoi, cotCuoi).getValues();
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
+  const ketQua = {};
+  let duAnHienTai = null;
+
+  for (let r = dongBatDauQuet - 1; r < displayValues.length; r++) {
+    const soDong = r + 1;
+    const giaTriA = String(displayValues[r][0] || '').trim();
+    const giaTriB = String(displayValues[r][1] || '').trim();
+    const giaTriN = String(rawValues[r][13] || '').trim();
+
+    if (laDongDuAnLaMaDongBo_(giaTriA, giaTriB)) {
+      duAnHienTai = {
+        maLaMa: giaTriA.toUpperCase(),
+        tenDuAn: giaTriB,
+        key: chuanHoaTenDuAnDongBo_(giaTriB)
+      };
+      continue;
+    }
+
+    if (laDongTongDongBo_(giaTriA)) break;
+    if (!duAnHienTai) continue;
+    if (!giaTriB) continue;
+    if (!laTrangThaiCongViecTon_(giaTriN, tapTrangThaiCongViecTon)) continue;
+
+    if (!ketQua[duAnHienTai.key]) {
+      ketQua[duAnHienTai.key] = [];
+    }
+
+    ketQua[duAnHienTai.key].push({
+      soDongNguon: soDong,
+      maLaMaNguon: duAnHienTai.maLaMa,
+      tenDuAnNguon: duAnHienTai.tenDuAn,
+      giaTriB: giaTriB,
+      giaTriC: String(displayValues[r][2] || '').trim(),
+      giaTriH: String(displayValues[r][7] || '').trim(),
+      giaTriI: String(displayValues[r][8] || '').trim(),
+      giaTriN: giaTriN
+    });
+  }
+
+  return ketQua;
+}
+
+function layBanDoDuAnLaMaTheoTen_(sheet, config) {
+  const dongCuoi = sheet.getLastRow();
+  const cotCuoi = Math.max(sheet.getLastColumn(), 2);
+  if (dongCuoi < 6) return {};
+
+  const values = sheet.getRange(1, 1, dongCuoi, cotCuoi).getDisplayValues();
+  const dongBatDauQuet = layDongBatDauQuetNhomDongBo_(sheet);
+  const banDo = {};
+  let duAnHienTai = null;
+
+  function ketThucDuAnTaiDong_(dongKetThucDocLap) {
+    if (!duAnHienTai) return;
+    duAnHienTai.dongKetThucDuLieu = dongKetThucDocLap - 1;
+    duAnHienTai.dongChenMoi = dongKetThucDocLap;
+    banDo[duAnHienTai.key] = duAnHienTai;
+    duAnHienTai = null;
+  }
+
+  for (let r = dongBatDauQuet - 1; r < values.length; r++) {
+    const soDong = r + 1;
+    const giaTriA = String(values[r][0] || '').trim();
+    const giaTriB = String(values[r][1] || '').trim();
+
+    if (laDongTongDongBo_(giaTriA)) {
+      ketThucDuAnTaiDong_(soDong);
+      break;
+    }
+
+    if (laDongDuAnLaMaDongBo_(giaTriA, giaTriB)) {
+      ketThucDuAnTaiDong_(soDong);
+      const key = chuanHoaTenDuAnDongBo_(giaTriB);
+      if (banDo[key]) {
+        throw new Error('Tên dự án/nhóm bị trùng trong sheet ' + sheet.getName() + ': ' + giaTriB);
+      }
+      duAnHienTai = {
+        key: key,
+        maLaMa: giaTriA.toUpperCase(),
+        tenDuAn: giaTriB,
+        dongTieuDe: soDong,
+        dongBatDauDuLieu: soDong + 1,
+        dongKetThucDuLieu: dongCuoi,
+        dongChenMoi: dongCuoi + 1
+      };
+    }
+  }
+
+  ketThucDuAnTaiDong_(dongCuoi + 1);
+  return banDo;
+}
+
+function layDanhSachKeyDuAnCoDongAuto_(sheet, config) {
+  const banDoDich = layBanDoDuAnLaMaTheoTen_(sheet, config);
+  const ketQua = [];
+
+  Object.keys(banDoDich).forEach(function(key) {
+    if (layDanhSachDongAutoTrongDuAn_(sheet, banDoDich[key]).length) {
+      ketQua.push(key);
+    }
+  });
+
+  return ketQua;
+}
+
+function layDanhSachDongAutoTrongDuAn_(sheet, thongTinDuAn) {
+  const ketQua = [];
+  if (!thongTinDuAn || thongTinDuAn.dongKetThucDuLieu < thongTinDuAn.dongBatDauDuLieu) return ketQua;
+
+  for (let soDong = thongTinDuAn.dongBatDauDuLieu; soDong <= thongTinDuAn.dongKetThucDuLieu; soDong++) {
+    if (layMarkerCongViecTonTheoDong_(sheet, soDong)) {
+      ketQua.push(soDong);
+    }
+  }
+
+  return ketQua;
+}
+
+function layDanhSachDongTrongDauDuAn_(sheet, thongTinDuAn, soLuongToiDa) {
+  const ketQua = [];
+  const gioiHan = Math.max(Number(soLuongToiDa || 0), 0);
+  if (!gioiHan || !thongTinDuAn || thongTinDuAn.dongKetThucDuLieu < thongTinDuAn.dongBatDauDuLieu) return ketQua;
+
+  const soDong = thongTinDuAn.dongKetThucDuLieu - thongTinDuAn.dongBatDauDuLieu + 1;
+  const values = sheet.getRange(thongTinDuAn.dongBatDauDuLieu, 1, soDong, 16).getDisplayValues();
+
+  for (let i = 0; i < values.length && ketQua.length < gioiHan; i++) {
+    const laDongTrong = values[i].every(function(value) {
+      return String(value || '').trim() === '';
+    });
+
+    if (!laDongTrong) break;
+    ketQua.push(thongTinDuAn.dongBatDauDuLieu + i);
+  }
+
+  return ketQua;
+}
+
+function lamSachDongAutoTrongDuAn_(sheet, dsDongAuto) {
+  const ketQua = (dsDongAuto || []).slice().sort(function(a, b) {
+    return a - b;
+  });
+
+  ketQua.forEach(function(soDong) {
+    try {
+      sheet.getRange(soDong, 1, 1, 16).clearContent().clearNote();
+      xoaMarkerCongViecTonTheoDong_(sheet, soDong);
+    } catch (error) {
+      Logger.log(
+        'Không làm sạch được dòng auto %s sheet %s: %s',
+        soDong,
+        sheet.getName(),
+        error && error.message ? error.message : error
+      );
+    }
+  });
+
+  return ketQua;
+}
+
+function hopNhatKeyDuAnDongBoTheoThuTuDich_(dsKeyNguon, dsKeyAuto, banDoDich) {
+  const daCo = {};
+  const ketQua = [];
+
+  (dsKeyNguon || []).forEach(function(key) {
+    if (key) daCo[key] = true;
+  });
+  (dsKeyAuto || []).forEach(function(key) {
+    if (key) daCo[key] = true;
+  });
+
+  Object.keys(banDoDich || {})
+    .sort(function(a, b) {
+      return banDoDich[a].dongTieuDe - banDoDich[b].dongTieuDe;
+    })
+    .forEach(function(key) {
+      if (daCo[key]) {
+        ketQua.push(key);
+        delete daCo[key];
+      }
+    });
+
+  Object.keys(daCo).forEach(function(key) {
+    ketQua.push(key);
+  });
+
+  return ketQua;
+}
+
+function ghiCongViecTonTheoDuAnVaoDong_(sheet, soDong, item, marker) {
+  const values = new Array(16).fill('');
+  values[1] = item.giaTriB || '';
+  values[2] = item.giaTriC || '';
+  values[7] = item.giaTriH || '';
+  values[8] = item.giaTriI || '';
+
+  sheet.getRange(soDong, 1, 1, 16).setValues([values]);
+  sheet.getRange(soDong, 1).clearContent().clearNote();
+  sheet.getRange(soDong, 1, 1, 16).clearNote();
+  datMarkerCongViecTonTheoDong_(sheet, soDong, marker);
+}
+
+function dinhDangDongCongViecTonMoi_(sheet, soDong) {
+  const rangeDong = sheet.getRange(soDong, 1, 1, 16);
+  try {
+    rangeDong.breakApart();
+  } catch (error) {}
+  rangeDong.clearContent();
+  rangeDong.clearNote();
+  rangeDong.clearFormat();
+  rangeDong.setBackground('#ffffff');
+  rangeDong.setFontWeight('normal');
+  rangeDong.setFontStyle('normal');
+  rangeDong.setFontLine('none');
+  rangeDong.setWrap(true);
+  rangeDong.setVerticalAlignment('middle');
+  rangeDong.setHorizontalAlignment('center');
+  sheet.getRange(soDong, 2).setHorizontalAlignment('left');
+  sheet.getRange(soDong, 1, 1, 16).setBorder(true, true, true, true, true, true);
+}
+
+function taoMarkerCongViecTonTheoDuAn_(tenSheetNguon, soDongNguon, tenDuAn) {
+  return '__AUTO_CONG_VIEC_TON__|tu=' + tenSheetNguon + '|dong=' + soDongNguon + '|duan=' + tenDuAn;
+}
+
+function laDongDuAnLaMaDongBo_(giaTriA, giaTriB) {
+  return laMaLaMaDongBo_(giaTriA) && String(giaTriB || '').trim() !== '';
+}
+
+function laMaLaMaDongBo_(giaTriA) {
+  const a = String(giaTriA || '').trim().toUpperCase();
+  if (!a) return false;
+  return /^(?=[MDCLXVI]+$)M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(a);
+}
+
+function chuanHoaTenDuAnDongBo_(giaTri) {
+  return String(giaTri || '')
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function laTrangThaiCongViecTon_(giaTriN, tapTrangThai) {
   const text = chuanHoaTrangThaiCongViecTon_(giaTriN);
   return !!text && !!tapTrangThai[text];
@@ -931,7 +1584,6 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   const moc = layCacMocThoiGianSheetThang_(sheet);
   const now = thoiDiemXet || new Date();
   const dsVungMo = [];
-  const soCotToiDa = sheet.getMaxColumns();
 
   if (now.getTime() >= moc.mocKhoaToanSheet.getTime()) {
     return dsVungMo;
@@ -940,12 +1592,12 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   if (thongTinDong.dongKeHoachThuongKetThuc >= thongTinDong.dongKeHoachThuongBatDau) {
     if (now.getTime() <= moc.mocKhoaKeHoachDauThang.getTime()) {
       dsVungMo.push({
-        moTa: 'Ke hoach dau thang - mo ca hang de phong ban chen dong',
+        moTa: 'Ke hoach A:J dau thang',
         range: sheet.getRange(
           thongTinDong.dongKeHoachThuongBatDau,
           1,
           thongTinDong.dongKeHoachThuongKetThuc - thongTinDong.dongKeHoachThuongBatDau + 1,
-          soCotToiDa
+          10
         )
       });
     }
@@ -954,12 +1606,12 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   if (thongTinDong.dongKeHoachPhatSinhKetThuc >= thongTinDong.dongKeHoachPhatSinhBatDau) {
     if (now.getTime() <= moc.mocKhoaKeHoachPhatSinh.getTime()) {
       dsVungMo.push({
-        moTa: 'Ke hoach phat sinh trong ky - mo ca hang de phong ban chen dong',
+        moTa: 'Ke hoach A:J phat sinh trong ky',
         range: sheet.getRange(
           thongTinDong.dongKeHoachPhatSinhBatDau,
           1,
           thongTinDong.dongKeHoachPhatSinhKetThuc - thongTinDong.dongKeHoachPhatSinhBatDau + 1,
-          soCotToiDa
+          10
         )
       });
     }
@@ -968,10 +1620,10 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   if (thongTinDong.dongDanhGiaKetThuc >= thongTinDong.dongDanhGiaBatDau) {
     if (now.getTime() <= moc.mocKhoaDanhGia.getTime()) {
       dsVungMo.push({
-        moTa: 'Danh gia L:P',
+        moTa: 'Danh gia K:O',
         range: sheet.getRange(
           thongTinDong.dongDanhGiaBatDau,
-          12,
+          11,
           thongTinDong.dongDanhGiaKetThuc - thongTinDong.dongDanhGiaBatDau + 1,
           5
         )
@@ -982,10 +1634,10 @@ function layDanhSachVungMoTheoThoiGian_(sheet, thoiDiemXet) {
   if (thongTinDong.dongCotPKetThuc >= thongTinDong.dongCotPBatDau) {
     if (now.getTime() <= moc.mocKhoaCotP.getTime()) {
       dsVungMo.push({
-        moTa: 'Cot Q',
+        moTa: 'Cot P',
         range: sheet.getRange(
           thongTinDong.dongCotPBatDau,
-          COT_Y_KIEN_CHI_DAO_,
+          16,
           thongTinDong.dongCotPKetThuc - thongTinDong.dongCotPBatDau + 1,
           1
         )
@@ -1267,10 +1919,10 @@ function layDanhSachMocTriggerProtection_() {
   var danhSachSheet = layDanhSachSheetThang_(ss, config);
   var danhSachMocRaw = [];
   var danhSachTruongMoc = [
-    { key: 'mocKhoaKeHoachDauThang', moTa: 'Khoa khoi ke hoach A:K dau thang' },
-    { key: 'mocKhoaKeHoachPhatSinh', moTa: 'Khoa khoi ke hoach A:K phan phat sinh' },
-    { key: 'mocKhoaDanhGia', moTa: 'Khoa khoi danh gia L:P' },
-    { key: 'mocKhoaCotP', moTa: 'Khoa cot Q' },
+    { key: 'mocKhoaKeHoachDauThang', moTa: 'Khoa khoi ke hoach A:J dau thang' },
+    { key: 'mocKhoaKeHoachPhatSinh', moTa: 'Khoa khoi ke hoach A:J phan phat sinh' },
+    { key: 'mocKhoaDanhGia', moTa: 'Khoa khoi danh gia K:O' },
+    { key: 'mocKhoaCotP', moTa: 'Khoa cot P' },
     { key: 'mocKhoaToanSheet', moTa: 'Khoa toan bo sheet thang truoc' }
   ];
 
